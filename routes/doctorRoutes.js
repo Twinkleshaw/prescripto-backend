@@ -21,4 +21,8 @@ router.get(
   getAllPatients
 );
 
+
+
+
+
 export default router;

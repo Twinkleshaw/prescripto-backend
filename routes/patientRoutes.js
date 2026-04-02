@@ -11,9 +11,10 @@ router.get(
   getAllDoctors
 );
 
-router.get("/doctors/:id", getDoctorById);
+router.get("/doctors/:id", authenticate, getDoctorById);
 
-router.post("/create-booking",authenticate, bookAppointment);
+router.post("/create-booking", authenticate, bookAppointment);
+
 
 
 export default router;

@@ -75,8 +75,8 @@ export const updateDoctor = async (req, res) => {
         "address",
         "googleMapLink",
         "image",
-        "startTime", 
-        "endTime", 
+        "startTime",
+        "endTime",
         "slotDuration",
       ];
     }
@@ -145,3 +145,4 @@ export const getDoctorById = async (req, res) => {
     });
   }
 };
+

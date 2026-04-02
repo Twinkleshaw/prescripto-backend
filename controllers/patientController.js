@@ -87,8 +87,6 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
-    console.log("jsjsf",req.user)
-
     const appointment = await Appointment.create({
       patientId: req.user.id,
       doctorId,
@@ -113,3 +111,5 @@ export const bookAppointment = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
