@@ -65,7 +65,6 @@ export const bookAppointment = async (req, res) => {
     const endTime = doctor.endTime;
     const slotDuration = doctor.slotDuration;
 
-
     // 📊 Existing bookings
     const existing = await Appointment.find({ doctorId, date });
 
@@ -97,10 +96,8 @@ export const bookAppointment = async (req, res) => {
       patientAge,
       patientPhone,
       paymentType,
-      paymentStatus:"pending",
+      paymentStatus: "pending",
     });
-
-
 
     res.json({
       message: "Appointment booked",
@@ -112,4 +109,32 @@ export const bookAppointment = async (req, res) => {
   }
 };
 
+export const updatePatientProfile = async (req, res) => {
+  try {
+    const patientId = req.user.id;
 
+    if (req.body.phone) {
+      return res.status(400).json({
+        message: "Phone number cannot be updated",
+      });
+    }
+
+    const updates = { ...req.body };
+
+    const patient = await Patient.findByIdAndUpdate(patientId, updates, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.json({
+      success: true,
+      message: "Profile updated successfully",
+      patient,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};

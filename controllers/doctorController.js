@@ -1,3 +1,4 @@
+import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 
 export const getAllDoctors = async (req, res) => {
@@ -146,3 +147,35 @@ export const getDoctorById = async (req, res) => {
   }
 };
 
+export const deleteDoctor = async (req, res) => {
+  try {
+    const doctorId = req.params.id;
+
+    const doctor = await Doctor.findById(doctorId);
+
+    if (!doctor) {
+      return res.status(404).json({
+        message: "Doctor not found",
+      });
+    }
+
+    // 🔥 Optional: check if doctor has appointments
+    const hasAppointments = await Appointment.findOne({ doctorId });
+
+    if (hasAppointments) {
+      return res.status(400).json({
+        message: "Doctor has appointments, cannot delete",
+      });
+    }
+
+    await Doctor.findByIdAndDelete(doctorId);
+
+    res.json({
+      message: "Doctor deleted successfully",
+    });
+  } catch (err) {
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+};
