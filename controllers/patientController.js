@@ -19,21 +19,54 @@ export const getAllPatients = async (req, res) => {
     const limit = Math.min(50, parseInt(req.query.limit) || 10);
     const search = req.query.search || "";
 
-    const query = search ? { phone: { $regex: search, $options: "i" } } : {};
+    // 🔒 Doctors only see patients they have appointments with
+    if (req.user.role === "doctor") {
+      const appointments = await Appointment.find({
+        doctorId: req.user.id,
+      }).distinct("patientId");
 
-    const patients = await Patient.find(query)
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .sort({ createdAt: -1 });
+      const query = {
+        _id: { $in: appointments },
+        ...(search
+          ? {
+              $or: [
+                { name: { $regex: search, $options: "i" } },
+                { phone: { $regex: search, $options: "i" } },
+              ],
+            }
+          : {}),
+      };
 
-    const total = await Patient.countDocuments(query);
+      const [patients, total] = await Promise.all([
+        Patient.find(query)
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .sort({ createdAt: -1 }),
+        Patient.countDocuments(query),
+      ]);
 
-    res.json({
-      total,
-      page,
-      limit,
-      patients,
-    });
+      return res.json({ total, page, limit, patients });
+    }
+
+    // Admin sees all
+    const query = search
+      ? {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { phone: { $regex: search, $options: "i" } },
+          ],
+        }
+      : {};
+
+    const [patients, total] = await Promise.all([
+      Patient.find(query)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .sort({ createdAt: -1 }),
+      Patient.countDocuments(query),
+    ]);
+
+    res.json({ total, page, limit, patients });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
@@ -141,32 +174,29 @@ export const updatePatientProfile = async (req, res) => {
 
 export const getPatientById = async (req, res) => {
   try {
-    const patientId = req.params.id;
-
-    const patient = await Patient.findById(patientId).select("-__v");
+    const patient = await Patient.findById(req.params.id).select("-__v");
 
     if (!patient) {
-      return res.status(404).json({
-        message: "Patient not found",
-      });
+      return res.status(404).json({ message: "Patient not found" });
     }
 
-    res.json({
-      success: true,
-      patient,
-    });
+    // 🔒 Doctor can only view their own patients
+    if (req.user.role === "doctor") {
+      const hasAppointment = await Appointment.exists({
+        doctorId: req.user.id,
+        patientId: patient._id,
+      });
+
+      if (!hasAppointment) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+    }
+
+    res.json({ success: true, patient });
   } catch (error) {
-    console.error(error);
-
-    // handle invalid ObjectId
     if (error.name === "CastError") {
-      return res.status(400).json({
-        message: "Invalid patient ID",
-      });
+      return res.status(400).json({ message: "Invalid patient ID" });
     }
-
-    res.status(500).json({
-      message: error.message ?? "Server error",
-    });
+    res.status(500).json({ message: "Server error" });
   }
 };

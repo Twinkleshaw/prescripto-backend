@@ -55,8 +55,14 @@ export const getAllDoctors = async (req, res) => {
 
 export const updateDoctor = async (req, res) => {
   try {
-    const doctorId = req.params.id || req.user.id;
     const role = req.user.role;
+
+    // 🔒 Doctor can only update themselves
+    const doctorId = role === "admin" ? req.params.id : req.user.id;
+
+    if (role === "doctor" && req.params.id && req.params.id !== req.user.id) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
     let allowedFields = [];
 
