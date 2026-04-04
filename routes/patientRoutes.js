@@ -6,6 +6,7 @@ import {
 } from "../controllers/doctorController.js";
 import {
   bookAppointment,
+  getPatientById,
   updatePatientProfile,
 } from "../controllers/patientController.js";
 
@@ -17,5 +18,6 @@ router.get("/doctors/:id", authenticate, getDoctorById);
 
 router.post("/create-booking", authenticate, bookAppointment);
 router.patch("/profile", authenticate, updatePatientProfile);
+router.get("/:id", authenticate, getPatientById);
 
 export default router;

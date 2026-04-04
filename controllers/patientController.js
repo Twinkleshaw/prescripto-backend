@@ -134,7 +134,39 @@ export const updatePatientProfile = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({
-      message: "Server error",
+      message: error.message ?? "Server error",
+    });
+  }
+};
+
+export const getPatientById = async (req, res) => {
+  try {
+    const patientId = req.params.id;
+
+    const patient = await Patient.findById(patientId).select("-__v");
+
+    if (!patient) {
+      return res.status(404).json({
+        message: "Patient not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      patient,
+    });
+  } catch (error) {
+    console.error(error);
+
+    // handle invalid ObjectId
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid patient ID",
+      });
+    }
+
+    res.status(500).json({
+      message: error.message ?? "Server error",
     });
   }
 };
