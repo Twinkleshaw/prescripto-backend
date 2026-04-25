@@ -1,6 +1,7 @@
 import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
+import { getFileUrl } from "../utils/fileHelper.js";
 
 const generateTimeFromToken = (startTime, token, slotDuration) => {
   const [hours, minutes] = startTime.split(":").map(Number);
@@ -29,11 +30,11 @@ export const getAllPatients = async (req, res) => {
         _id: { $in: appointments },
         ...(search
           ? {
-              $or: [
-                { name: { $regex: search, $options: "i" } },
-                { phone: { $regex: search, $options: "i" } },
-              ],
-            }
+            $or: [
+              { name: { $regex: search, $options: "i" } },
+              { phone: { $regex: search, $options: "i" } },
+            ],
+          }
           : {}),
       };
 
@@ -51,11 +52,11 @@ export const getAllPatients = async (req, res) => {
     // Admin sees all
     const query = search
       ? {
-          $or: [
-            { name: { $regex: search, $options: "i" } },
-            { phone: { $regex: search, $options: "i" } },
-          ],
-        }
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { phone: { $regex: search, $options: "i" } },
+        ],
+      }
       : {};
 
     const [patients, total] = await Promise.all([
@@ -151,8 +152,12 @@ export const updatePatientProfile = async (req, res) => {
         message: "Phone number cannot be updated",
       });
     }
-
     const updates = { ...req.body };
+
+    if (req.file) {
+      updates.profileImage = getFileUrl(req, "uploads/profile", req.file.filename);
+    }
+
 
     const patient = await Patient.findByIdAndUpdate(patientId, updates, {
       new: true,

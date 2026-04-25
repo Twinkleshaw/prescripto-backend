@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
+dotenv.config();
 
 import authRoutes from "./routes/authRoutes.js";
 import doctorRoutes from "./routes/doctorRoutes.js";
@@ -14,7 +15,6 @@ if (process.env.NODE_ENV !== "production") {
   dns.setServers(["1.1.1.1", "8.8.8.8"]);
 }
 
-dotenv.config();
 
 const app = express();
 
