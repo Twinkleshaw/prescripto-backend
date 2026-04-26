@@ -60,7 +60,6 @@ export const sendOTP = async (req, res) => {
     return res.json({
       success: true,
       message: "OTP sent successfully",
-      data: null,
     });
   } catch (error) {
     console.error(error);
@@ -80,6 +79,7 @@ export const verifyOTP = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Phone and OTP are required",
+        data: null,
       });
     }
 
@@ -91,6 +91,7 @@ export const verifyOTP = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Invalid OTP",
+        data: null,
       });
     }
 
@@ -143,6 +144,7 @@ export const verifyOTP = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error",
+      data: null,
     });
   }
 };
