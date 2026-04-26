@@ -15,7 +15,6 @@ if (process.env.NODE_ENV !== "production") {
   dns.setServers(["1.1.1.1", "8.8.8.8"]);
 }
 
-
 const app = express();
 
 mongoose
@@ -23,7 +22,13 @@ mongoose
   .then(() => console.log("MongoDB Connected"))
   .catch((err) => console.log(err));
 
-app.use(cors());
+app.use(
+  cors({
+    origin: "*", // for now (later restrict)
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -38,6 +43,6 @@ app.use("/api/appointment", appointmentRoutes);
 
 const PORT = process.env.PORT || 8000;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
