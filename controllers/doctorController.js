@@ -6,49 +6,50 @@ export const getAllDoctors = async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(20, parseInt(req.query.limit) || 10);
 
-    const { search = "", specialty = "", city = "" } = req.query;
+    const { speciality = "", city = "" } = req.query;
 
-    let query = {};
+    const andConditions = [];
 
-    // 🔍 Search by name OR specialty
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { specialty: { $regex: search, $options: "i" } },
-      ];
+    // 🩺 Filter by speciality
+    if (speciality.trim()) {
+      andConditions.push({
+        speciality: { $regex: speciality.trim(), $options: "i" },
+      });
     }
 
-    // 🩺 Filter by specialty
-    if (specialty) {
-      query.specialty = { $regex: specialty, $options: "i" };
+    // 📍 Filter by city
+    if (city.trim()) {
+      andConditions.push({
+        "address.city": { $regex: city.trim(), $options: "i" },
+      });
     }
 
-    // 📍 Filter by city (nested field)
-    if (city) {
-      query["address.city"] = { $regex: city, $options: "i" };
-    }
-
-    // 👤 Public filtering (optional)
+    // 👤 Public/patient access: only active + available doctors
     if (!req.user || req.user.role === "patient") {
-      query.isActive = true;
-      query.availabilityStatus = true;
+      andConditions.push({ isActive: true, availabilityStatus: true });
     }
 
-    const doctors = await Doctor.find(query)
-      .select("-password")
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .sort({ createdAt: -1 });
+    const query = andConditions.length > 0 ? { $and: andConditions } : {};
 
-    const total = await Doctor.countDocuments(query);
+    const [doctors, total] = await Promise.all([
+      Doctor.find(query)
+        .select("name image speciality experience address.city")
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .lean(),
+      Doctor.countDocuments(query),
+    ]);
 
     res.json({
       total,
       page,
       limit,
+      totalPages: Math.ceil(total / limit),
       doctors,
     });
   } catch (error) {
+    console.error("getAllDoctors error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -69,9 +70,9 @@ export const updateDoctor = async (req, res) => {
     // 👨‍💼 Admin fields
     if (role === "admin") {
       allowedFields = [
-        "specialty",
+        "speciality",
         "nameBengali",
-        "specialtyBengali",
+        "specialityBengali",
         "degree",
         "experience",
         "description",
