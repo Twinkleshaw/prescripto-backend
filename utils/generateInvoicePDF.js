@@ -1,189 +1,311 @@
-import puppeteer from "puppeteer";
+import PDFDocument from "pdfkit";
 
-export const generateInvoicePDF = async (appointment) => {
-  const {
-    doctorId: doctor,
-    patientName,
-    patientAge,
-    date,
-    time,
-    tokenNumber,
-    paymentStatus,
-    paymentType,
-    _id,
-  } = appointment;
+export const generateInvoicePDF = (appointment) => {
+  return new Promise((resolve, reject) => {
+    const {
+      doctorId: doctor,
+      patientName,
+      patientAge,
+      date,
+      time,
+      tokenNumber,
+      paymentStatus,
+      paymentType,
+      _id,
+    } = appointment;
 
-  const invoiceNumber = `INV-${date.replace(/-/g, "")}-${String(_id).slice(-6).toUpperCase()}`;
+    const invoiceNumber = `INV-${date.replace(/-/g, "")}-${String(_id).slice(-6).toUpperCase()}`;
+    const consultationFee = doctor.fees || 0;
+    const isPaid = paymentStatus === "paid";
 
-  const paymentStatusLabel = paymentStatus === "paid" ? "PAID" : "UNPAID";
-  const paymentStatusColor = paymentStatus === "paid" ? "#16a34a" : "#dc2626";
-
-  const consultationFee = doctor.fees || 0;
-
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8" />
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #1a1a1a; background: #fff; padding: 40px; font-size: 13px; }
-
-        .header { text-align: center; margin-bottom: 28px; }
-        .header h1 { font-size: 26px; font-weight: 700; color: #1a1a1a; }
-        .header p { font-size: 11px; color: #666; margin-top: 2px; }
-        .invoice-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
-        .invoice-id { font-size: 12px; color: #555; margin-bottom: 16px; }
-
-        .divider { border: none; border-top: 1px solid #e5e7eb; margin: 16px 0; }
-
-        .section { margin-bottom: 18px; }
-        .section-title { font-size: 12px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-        .section-title::before { content: ''; display: inline-block; width: 3px; height: 14px; background: #6366f1; border-radius: 2px; }
-
-        .info-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
-        .info-label { color: #666; font-size: 12px; }
-        .info-value { font-weight: 500; font-size: 12px; text-align: right; }
-
-        .table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        .table th { background: #f3f4f6; padding: 8px 12px; text-align: left; font-size: 11px; font-weight: 600; color: #374151; }
-        .table td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; font-size: 12px; }
-        .table .amount { text-align: right; font-weight: 600; }
-
-        .total-row { display: flex; justify-content: space-between; padding: 12px 0; border-top: 2px solid #1a1a1a; margin-top: 8px; }
-        .total-label { font-size: 14px; font-weight: 700; }
-        .total-amount { font-size: 16px; font-weight: 700; }
-
-        .payment-badge { display: inline-block; padding: 6px 18px; border-radius: 20px; font-size: 13px; font-weight: 700; letter-spacing: 1px; color: ${paymentStatusColor}; border: 2px solid ${paymentStatusColor}; margin-top: 16px; }
-
-        .footer { margin-top: 32px; text-align: center; font-size: 10px; color: #9ca3af; line-height: 1.6; }
-        .footer .signature { border-top: 1px solid #d1d5db; display: inline-block; padding-top: 6px; margin-bottom: 10px; min-width: 160px; font-size: 11px; color: #374151; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <div class="invoice-title">Official Invoice</div>
-        <div class="invoice-id">Invoice ID: ${invoiceNumber}</div>
-        <h1>Prescripto</h1>
-        <p>Clinical Excellence &amp; Care · Digital Health Records Division</p>
-      </div>
-
-      <hr class="divider" />
-
-      <!-- Patient Info -->
-      <div class="section">
-        <div class="section-title">Patient Information</div>
-        <div class="info-row">
-          <span class="info-label">Full Name</span>
-          <span class="info-value">${patientName}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Age</span>
-          <span class="info-value">${patientAge} Years</span>
-        </div>
-      </div>
-
-      <hr class="divider" />
-
-      <!-- Doctor Info -->
-      <div class="section">
-        <div class="section-title">Doctor Information</div>
-        <div class="info-row">
-          <span class="info-label">Practitioner</span>
-          <span class="info-value">${doctor.name}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Speciality</span>
-          <span class="info-value">${doctor.speciality || "General"}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Clinic Address</span>
-          <span class="info-value">${doctor.address?.city || ""}, ${doctor.address?.state || ""}</span>
-        </div>
-      </div>
-
-      <hr class="divider" />
-
-      <!-- Appointment Details -->
-      <div class="section">
-        <div class="section-title">Appointment Details</div>
-        <div class="info-row">
-          <span class="info-label">Date</span>
-          <span class="info-value">${new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Time</span>
-          <span class="info-value">${time}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Token Number</span>
-          <span class="info-value">#${tokenNumber}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">Payment Type</span>
-          <span class="info-value">${paymentType === "pay_at_clinic" ? "Pay at Clinic" : "Online"}</span>
-        </div>
-        <div class="info-row">
-          <span class="info-label">SL Number</span>
-          <span class="info-value">UID-${String(_id).slice(-6).toUpperCase()}</span>
-        </div>
-      </div>
-
-      <hr class="divider" />
-
-      <!-- Payment Summary -->
-      <div class="section">
-        <div class="section-title">Payment Summary</div>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th style="text-align:right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>${doctor.speciality || "General"} Consultation<br/><span style="color:#888;font-size:11px">Specialist Consultation Fee</span></td>
-              <td class="amount">₹${consultationFee.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
-        <div class="total-row">
-          <span class="total-label">Total ${paymentStatus === "paid" ? "Paid" : "Due"}</span>
-          <span class="total-amount">₹${consultationFee.toFixed(2)}</span>
-        </div>
-      </div>
-
-      <div style="text-align:center">
-        <div class="payment-badge">⊙ PAYMENT STATUS: ${paymentStatusLabel}</div>
-      </div>
-
-      <div class="footer">
-        <div class="signature">AUTHORISED SIGNATURE</div>
-        <p>This is a computer-generated document. No physical signature is required for validity.</p>
-        <p>Please keep this invoice for your own future use. Valid for 30 Days from issue.</p>
-      </div>
-    </body>
-    </html>
-  `;
-
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
-
-  try {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: 50,
     });
 
-    return pdfBuffer;
-  } finally {
-    await browser.close(); // always closes even if error
-  }
+    const chunks = [];
+    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const W = 595; // A4 width in points
+    const MARGIN = 50;
+    const CONTENT_W = W - MARGIN * 2;
+
+    // ── Colors ──
+    const PURPLE = "#6366f1";
+    const DARK = "#1a1a1a";
+    const GRAY = "#6b7280";
+    const LIGHT_BG = "#f3f4f6";
+    const GREEN = "#16a34a";
+    const RED = "#dc2626";
+
+    // ── Helper: horizontal rule ──
+    const hr = (y, color = "#e5e7eb") => {
+      doc
+        .moveTo(MARGIN, y)
+        .lineTo(W - MARGIN, y)
+        .strokeColor(color)
+        .lineWidth(1)
+        .stroke();
+    };
+
+    // ── Helper: section title ──
+    const sectionTitle = (text, y) => {
+      doc.rect(MARGIN, y, 3, 14).fillColor(PURPLE).fill();
+      doc
+        .fontSize(9)
+        .fillColor(PURPLE)
+        .font("Helvetica-Bold")
+        .text(text.toUpperCase(), MARGIN + 10, y + 1);
+      return y + 22;
+    };
+
+    // ── Helper: info row ──
+    const infoRow = (label, value, y) => {
+      doc.fontSize(11).fillColor(GRAY).font("Helvetica").text(label, MARGIN, y);
+      doc
+        .fontSize(11)
+        .fillColor(DARK)
+        .font("Helvetica-Bold")
+        .text(value, MARGIN, y, {
+          align: "right",
+          width: CONTENT_W,
+        });
+      return y + 20;
+    };
+
+    let y = MARGIN;
+
+    // ═══════════════════════════════
+    // HEADER
+    // ═══════════════════════════════
+    doc
+      .fontSize(9)
+      .fillColor(GRAY)
+      .font("Helvetica")
+      .text("Official Invoice", MARGIN, y, {
+        align: "center",
+        width: CONTENT_W,
+      });
+    y += 16;
+
+    doc
+      .fontSize(8)
+      .fillColor(GRAY)
+      .font("Helvetica")
+      .text(`Invoice ID: ${invoiceNumber}`, MARGIN, y, {
+        align: "center",
+        width: CONTENT_W,
+      });
+    y += 20;
+
+    doc
+      .fontSize(22)
+      .fillColor(DARK)
+      .font("Helvetica-Bold")
+      .text("Prescripto", MARGIN, y, { align: "center", width: CONTENT_W });
+    y += 28;
+
+    doc
+      .fontSize(8)
+      .fillColor(GRAY)
+      .font("Helvetica")
+      .text(
+        "Clinical Excellence & Care  ·  Digital Health Records Division",
+        MARGIN,
+        y,
+        {
+          align: "center",
+          width: CONTENT_W,
+        },
+      );
+    y += 24;
+
+    hr(y);
+    y += 16;
+
+    // ═══════════════════════════════
+    // PATIENT INFO
+    // ═══════════════════════════════
+    y = sectionTitle("Patient Information", y);
+    y = infoRow("Full Name", patientName, y);
+    y = infoRow("Age", `${patientAge} Years`, y);
+
+    y += 4;
+    hr(y);
+    y += 16;
+
+    // ═══════════════════════════════
+    // DOCTOR INFO
+    // ═══════════════════════════════
+    y = sectionTitle("Doctor Information", y);
+    y = infoRow("Practitioner", doctor.name, y);
+    y = infoRow("Speciality", doctor.speciality || "General", y);
+    y = infoRow(
+      "Clinic Address",
+      `${doctor.address?.city || ""}, ${doctor.address?.state || ""}`,
+      y,
+    );
+
+    y += 4;
+    hr(y);
+    y += 16;
+
+    // ═══════════════════════════════
+    // APPOINTMENT DETAILS
+    // ═══════════════════════════════
+    y = sectionTitle("Appointment Details", y);
+    y = infoRow(
+      "Date",
+      new Date(date).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+      y,
+    );
+    y = infoRow("Time", time, y);
+    y = infoRow("Token Number", `#${tokenNumber}`, y);
+    y = infoRow(
+      "Payment Type",
+      paymentType === "pay_at_clinic" ? "Pay at Clinic" : "Online",
+      y,
+    );
+    y = infoRow("SL Number", `UID-${String(_id).slice(-6).toUpperCase()}`, y);
+
+    y += 4;
+    hr(y);
+    y += 16;
+
+    // ═══════════════════════════════
+    // PAYMENT SUMMARY TABLE
+    // ═══════════════════════════════
+    y = sectionTitle("Payment Summary", y);
+
+    // Table header
+    doc.rect(MARGIN, y, CONTENT_W, 24).fillColor(LIGHT_BG).fill();
+    doc
+      .fontSize(9)
+      .fillColor(DARK)
+      .font("Helvetica-Bold")
+      .text("Description", MARGIN + 10, y + 7)
+      .text("Amount", MARGIN, y + 7, { align: "right", width: CONTENT_W - 10 });
+    y += 24;
+
+    // Table row
+    doc
+      .fontSize(11)
+      .fillColor(DARK)
+      .font("Helvetica")
+      .text(
+        `${doctor.speciality || "General"} Consultation`,
+        MARGIN + 10,
+        y + 8,
+      );
+    doc
+      .fontSize(9)
+      .fillColor(GRAY)
+      .font("Helvetica")
+      .text("Specialist Consultation Fee", MARGIN + 10, y + 22);
+    doc
+      .fontSize(11)
+      .fillColor(DARK)
+      .font("Helvetica-Bold")
+      .text(`Rs. ${consultationFee.toFixed(2)}`, MARGIN, y + 8, {
+        align: "right",
+        width: CONTENT_W - 10,
+      });
+    y += 44;
+
+    hr(y);
+    y += 8;
+
+    // Subtotal row
+    doc
+      .fontSize(10)
+      .fillColor(GRAY)
+      .font("Helvetica")
+      .text("Subtotal", MARGIN, y);
+    doc
+      .fontSize(10)
+      .fillColor(DARK)
+      .font("Helvetica-Bold")
+      .text(`Rs. ${consultationFee.toFixed(2)}`, MARGIN, y, {
+        align: "right",
+        width: CONTENT_W,
+      });
+    y += 20;
+
+    // Total row
+    hr(y, DARK);
+    y += 10;
+    doc
+      .fontSize(13)
+      .fillColor(DARK)
+      .font("Helvetica-Bold")
+      .text(`Total ${isPaid ? "Paid" : "Due"}`, MARGIN, y);
+    doc
+      .fontSize(14)
+      .fillColor(DARK)
+      .font("Helvetica-Bold")
+      .text(`Rs. ${consultationFee.toFixed(2)}`, MARGIN, y, {
+        align: "right",
+        width: CONTENT_W,
+      });
+    y += 36;
+
+    // ═══════════════════════════════
+    // PAYMENT STATUS BADGE
+    // ═══════════════════════════════
+    const badgeColor = isPaid ? GREEN : RED;
+    const badgeText = `PAYMENT STATUS: ${isPaid ? "PAID" : "UNPAID"}`;
+    const badgeW = 220;
+    const badgeX = (W - badgeW) / 2;
+
+    doc
+      .roundedRect(badgeX, y, badgeW, 28, 14)
+      .strokeColor(badgeColor)
+      .lineWidth(2)
+      .stroke();
+    doc
+      .fontSize(10)
+      .fillColor(badgeColor)
+      .font("Helvetica-Bold")
+      .text(badgeText, badgeX, y + 8, { align: "center", width: badgeW });
+    y += 52;
+
+    // ═══════════════════════════════
+    // FOOTER
+    // ═══════════════════════════════
+    const footerY = 750;
+    const sigLineX = (W - 160) / 2;
+    doc
+      .moveTo(sigLineX, footerY)
+      .lineTo(sigLineX + 160, footerY)
+      .strokeColor("#d1d5db")
+      .lineWidth(1)
+      .stroke();
+    doc
+      .fontSize(9)
+      .fillColor(DARK)
+      .font("Helvetica")
+      .text("AUTHORISED SIGNATURE", MARGIN, footerY + 6, {
+        align: "center",
+        width: CONTENT_W,
+      });
+
+    doc
+      .fontSize(8)
+      .fillColor(GRAY)
+      .font("Helvetica")
+      .text(
+        "This is a computer-generated document. No physical signature is required for validity.\nPlease keep this invoice for your own future use. Valid for 30 days from issue.",
+        MARGIN,
+        footerY + 22,
+        { align: "center", width: CONTENT_W, lineGap: 3 },
+      );
+
+    doc.end();
+  });
 };
