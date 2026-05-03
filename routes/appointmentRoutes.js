@@ -6,7 +6,7 @@ import {
   getAppointments,
   getMyAppointments,
 } from "../controllers/appointmentController.js";
-
+import { downloadInvoice } from "../controllers/invoiceController.js";
 const router = express.Router();
 
 router.get("/patient-appointments", authenticate, getMyAppointments);
@@ -25,6 +25,13 @@ router.patch(
   authenticate,
   authorizeRoles("doctor", "admin"),
   completeAppointment,
+);
+
+router.get(
+  "/:id/invoice",
+  authenticate,
+  authorizeRoles("patient"),
+  downloadInvoice,
 );
 
 export default router;
