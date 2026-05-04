@@ -1,4 +1,6 @@
 import Appointment from "../models/Appointment.js";
+import Doctor from "../models/Doctor.js";
+import Patient from "../models/Patient.js";
 
 export const getAppointments = async (req, res) => {
   try {
@@ -16,8 +18,10 @@ export const getAppointments = async (req, res) => {
       filter.doctorId = req.user.id;
     }
 
-    // 🔥 total count BEFORE pagination
-    const total = await Appointment.countDocuments(filter);
+    // 🔥 counts
+    const totalAppointments = await Appointment.countDocuments(filter);
+    const totalDoctors = await Doctor.countDocuments();
+    const totalPatients = await Patient.countDocuments();
 
     const appointments = await Appointment.find(filter)
       .populate("doctorId", "name")
@@ -28,8 +32,10 @@ export const getAppointments = async (req, res) => {
 
     res.json({
       success: true,
-      count: total, // ✅ total records
-      appointments, // ✅ paginated data
+      totalAppointments,
+      totalDoctors,
+      totalPatients,
+      appointments,
     });
   } catch (error) {
     console.error(error);
