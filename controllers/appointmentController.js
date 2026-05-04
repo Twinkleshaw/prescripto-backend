@@ -3,23 +3,33 @@ import Appointment from "../models/Appointment.js";
 export const getAppointments = async (req, res) => {
   try {
     const { doctorId, date } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
     let filter = {};
 
-    // optional filters
     if (doctorId) filter.doctorId = doctorId;
     if (date) filter.date = date;
-    // Force doctors to only see their own
-    if (req.user.role === "doctor") filter.doctorId = req.user.id;
+
+    if (req.user.role === "doctor") {
+      filter.doctorId = req.user.id;
+    }
+
+    // 🔥 total count BEFORE pagination
+    const total = await Appointment.countDocuments(filter);
+
     const appointments = await Appointment.find(filter)
       .populate("doctorId", "name")
       .populate("patientId", "name")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     res.json({
       success: true,
-      count: appointments.length,
-      appointments,
+      count: total, // ✅ total records
+      appointments, // ✅ paginated data
     });
   } catch (error) {
     console.error(error);
