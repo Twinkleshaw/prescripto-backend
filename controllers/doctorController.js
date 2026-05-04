@@ -1,7 +1,7 @@
 import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 
-export const getAllDoctors = async (req, res) => {
+export const getAllSearchDoctors = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(20, parseInt(req.query.limit) || 10);
@@ -42,6 +42,33 @@ export const getAllDoctors = async (req, res) => {
     ]);
 
     res.json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      doctors,
+    });
+  } catch (error) {
+    console.error("getAllDoctors error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getAllDoctors = async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
+    const skip = (page - 1) * limit;
+
+    // 🔥 No filters — pure list
+    const [doctors, total] = await Promise.all([
+      Doctor.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+
+      Doctor.countDocuments(),
+    ]);
+
+    res.json({
+      success: true,
       total,
       page,
       limit,

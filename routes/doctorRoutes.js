@@ -10,19 +10,14 @@ router.put(
   "/update-profile",
   authenticate,
   authorizeRoles("doctor"),
-  updateDoctor
+  updateDoctor,
 );
-
 
 router.get(
   "/patients-list",
   authenticate,
   authorizeRoles("doctor"),
-  getAllPatients
+  getAllPatients,
 );
-
-
-
-
 
 export default router;
