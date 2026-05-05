@@ -1,32 +1,45 @@
 import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
+import mongoose from "mongoose";
 
 export const getAppointments = async (req, res) => {
   try {
     const { doctorId, date, search } = req.query;
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(20, parseInt(req.query.limit) || 10);
     const skip = (page - 1) * limit;
 
     let filter = {};
 
-    if (doctorId) filter.doctorId = doctorId;
-    if (date) filter.date = date;
-
+    // 🔒 ROLE-BASED FILTER (FIRST & STRICT)
     if (req.user.role === "doctor") {
-      filter.doctorId = req.user.id;
+      // ✅ Always restrict to logged-in doctor
+      filter.doctorId = new mongoose.Types.ObjectId(req.user.id);
+    } else {
+      // 👑 Admin can filter by doctor
+      if (doctorId && mongoose.Types.ObjectId.isValid(doctorId)) {
+        filter.doctorId = new mongoose.Types.ObjectId(doctorId);
+      }
     }
 
-    // ✅ SIMPLE + FAST SEARCH
+    // 📅 Date filter
+    if (date) {
+      filter.date = date;
+    }
+
+    // 🔍 Patient name search
     if (search) {
       filter.patientName = { $regex: search.trim(), $options: "i" };
     }
 
+    // 🔥 counts
     const totalAppointments = await Appointment.countDocuments(filter);
     const totalDoctors = await Doctor.countDocuments();
     const totalPatients = await Patient.countDocuments();
 
+    // 📦 data
     const appointments = await Appointment.find(filter)
       .populate("doctorId", "name")
       .populate("patientId", "name")
@@ -34,7 +47,7 @@ export const getAppointments = async (req, res) => {
       .skip(skip)
       .limit(limit);
 
-    res.json({
+    return res.json({
       success: true,
       totalAppointments,
       totalDoctors,
@@ -42,8 +55,8 @@ export const getAppointments = async (req, res) => {
       appointments,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("GET APPOINTMENTS ERROR:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

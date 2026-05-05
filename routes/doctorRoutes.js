@@ -1,6 +1,9 @@
 import express from "express";
 import { authenticate, authorizeRoles } from "../middleware/authMiddleware.js";
-import { updateDoctor } from "../controllers/doctorController.js";
+import {
+  getDoctorDashboard,
+  updateDoctor,
+} from "../controllers/doctorController.js";
 import { getAllPatients } from "../controllers/patientController.js";
 
 const router = express.Router();
@@ -18,6 +21,13 @@ router.get(
   authenticate,
   authorizeRoles("doctor"),
   getAllPatients,
+);
+
+router.get(
+  "/dashboard",
+  authenticate,
+  authorizeRoles("doctor"),
+  getDoctorDashboard,
 );
 
 export default router;

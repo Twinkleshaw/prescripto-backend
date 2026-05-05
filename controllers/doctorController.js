@@ -1,5 +1,74 @@
 import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
+import mongoose from "mongoose";
+
+export const getDoctorDashboard = async (req, res) => {
+  try {
+    const doctorId = new mongoose.Types.ObjectId(req.user.id);
+
+    const today = new Date().toISOString().split("T")[0];
+
+    // 📊 Aggregations
+    const [
+      totalAppointments,
+      todayAppointments,
+      totalPatients,
+      earnings,
+      payments,
+      latestBookings,
+    ] = await Promise.all([
+      // Total appointments
+      Appointment.countDocuments({ doctorId }),
+
+      // Today's appointments
+      Appointment.countDocuments({ doctorId, date: today }),
+
+      // Unique patients
+      Appointment.distinct("patientId", { doctorId }),
+
+      // Earnings (only paid)
+      Appointment.aggregate([
+        { $match: { doctorId, paymentStatus: "paid" } },
+        { $group: { _id: null, total: { $sum: "$fees" } } },
+      ]),
+
+      // Payment split
+      Appointment.aggregate([
+        { $match: { doctorId } },
+        {
+          $group: {
+            _id: "$paymentType",
+            count: { $sum: 1 },
+          },
+        },
+      ]),
+
+      // Latest bookings
+      Appointment.find({ doctorId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate("patientId", "name"),
+    ]);
+
+    res.json({
+      success: true,
+
+      totalAppointments,
+      todayAppointments,
+
+      totalPatients: totalPatients.length,
+
+      totalEarnings: earnings[0]?.total || 0,
+
+      payments,
+
+      latestBookings,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
 export const getAllSearchDoctors = async (req, res) => {
   try {
