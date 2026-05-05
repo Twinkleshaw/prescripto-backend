@@ -4,7 +4,7 @@ import Patient from "../models/Patient.js";
 
 export const getAppointments = async (req, res) => {
   try {
-    const { doctorId, date } = req.query;
+    const { doctorId, date, search } = req.query;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
@@ -16,6 +16,17 @@ export const getAppointments = async (req, res) => {
 
     if (req.user.role === "doctor") {
       filter.doctorId = req.user.id;
+    }
+
+    // 🔍 SEARCH BY PATIENT NAME
+    if (search) {
+      const patients = await Patient.find({
+        name: { $regex: search, $options: "i" },
+      }).select("_id");
+
+      const patientIds = patients.map((p) => p._id);
+
+      filter.patientId = { $in: patientIds };
     }
 
     // 🔥 counts
