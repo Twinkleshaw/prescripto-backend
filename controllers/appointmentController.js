@@ -18,18 +18,11 @@ export const getAppointments = async (req, res) => {
       filter.doctorId = req.user.id;
     }
 
-    // 🔍 SEARCH BY PATIENT NAME
+    // ✅ SIMPLE + FAST SEARCH
     if (search) {
-      const patients = await Patient.find({
-        name: { $regex: search, $options: "i" },
-      }).select("_id");
-
-      const patientIds = patients.map((p) => p._id);
-
-      filter.patientId = { $in: patientIds };
+      filter.patientName = { $regex: search.trim(), $options: "i" };
     }
 
-    // 🔥 counts
     const totalAppointments = await Appointment.countDocuments(filter);
     const totalDoctors = await Doctor.countDocuments();
     const totalPatients = await Patient.countDocuments();
