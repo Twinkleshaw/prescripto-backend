@@ -13,6 +13,7 @@ export const getDoctorDashboard = async (req, res) => {
       totalPatients,
       onlinePayments,
       offlinePayments,
+      todayEarnings,
       latestBookings,
     ] = await Promise.all([
       // Today's appointments
@@ -60,6 +61,23 @@ export const getDoctorDashboard = async (req, res) => {
         },
       ]),
 
+      // Today's earnings
+      Appointment.aggregate([
+        {
+          $match: {
+            doctorId,
+            date: today,
+            paymentStatus: "paid",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
+          },
+        },
+      ]),
+
       // Latest bookings
       Appointment.find({ doctorId })
         .sort({ createdAt: -1 })
@@ -71,6 +89,8 @@ export const getDoctorDashboard = async (req, res) => {
       success: true,
 
       todayAppointments,
+
+      todayEarnings: todayEarnings[0]?.total || 0,
 
       totalPatients: totalPatients.length,
 
@@ -92,6 +112,7 @@ export const getDoctorDashboard = async (req, res) => {
     });
   }
 };
+
 export const getAllSearchDoctors = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
