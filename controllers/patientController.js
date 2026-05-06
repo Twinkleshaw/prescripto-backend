@@ -30,11 +30,11 @@ export const getAllPatients = async (req, res) => {
         _id: { $in: appointments },
         ...(search
           ? {
-            $or: [
-              { name: { $regex: search, $options: "i" } },
-              { phone: { $regex: search, $options: "i" } },
-            ],
-          }
+              $or: [
+                { name: { $regex: search, $options: "i" } },
+                { phone: { $regex: search, $options: "i" } },
+              ],
+            }
           : {}),
       };
 
@@ -52,11 +52,11 @@ export const getAllPatients = async (req, res) => {
     // Admin sees all
     const query = search
       ? {
-        $or: [
-          { name: { $regex: search, $options: "i" } },
-          { phone: { $regex: search, $options: "i" } },
-        ],
-      }
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { phone: { $regex: search, $options: "i" } },
+          ],
+        }
       : {};
 
     const [patients, total] = await Promise.all([
@@ -125,6 +125,7 @@ export const bookAppointment = async (req, res) => {
       doctorId,
       date,
       time,
+      amount: doctor.fees,
       tokenNumber,
       patientName,
       patientAge,
@@ -155,9 +156,12 @@ export const updatePatientProfile = async (req, res) => {
     const updates = { ...req.body };
 
     if (req.file) {
-      updates.profileImage = getFileUrl(req, "uploads/profile", req.file.filename);
+      updates.profileImage = getFileUrl(
+        req,
+        "uploads/profile",
+        req.file.filename,
+      );
     }
-
 
     const patient = await Patient.findByIdAndUpdate(patientId, updates, {
       new: true,

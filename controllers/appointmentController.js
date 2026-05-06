@@ -132,31 +132,61 @@ export const completeAppointment = async (req, res) => {
     const appointment = await Appointment.findById(req.params.id);
 
     if (!appointment) {
-      return res.status(404).json({ message: "Appointment not found" });
+      return res.status(404).json({
+        message: "Appointment not found",
+      });
     }
 
-    // 🔒 Doctor can only complete their own appointments
+    // Doctor can complete only own appointments
     if (
       req.user.role === "doctor" &&
       appointment.doctorId.toString() !== req.user.id
     ) {
-      return res.status(403).json({ message: "Access denied" });
+      return res.status(403).json({
+        message: "Access denied",
+      });
     }
 
+    // Already completed
     if (appointment.status === "completed") {
-      return res.status(400).json({ message: "Already completed" });
+      return res.status(400).json({
+        message: "Already completed",
+      });
     }
+
+    // Cancelled cannot complete
     if (appointment.status === "cancelled") {
-      return res
-        .status(400)
-        .json({ message: "Cancelled appointment cannot be completed" });
+      return res.status(400).json({
+        message: "Cancelled appointment cannot be completed",
+      });
     }
+
+    // =========================
+    // COMPLETE APPOINTMENT
+    // =========================
 
     appointment.status = "completed";
+
+    // If patient pays at clinic,
+    // mark payment as paid on completion
+    if (
+      appointment.paymentType === "pay_at_clinic" &&
+      appointment.paymentStatus === "pending"
+    ) {
+      appointment.paymentStatus = "paid";
+    }
+
     await appointment.save();
 
-    res.json({ message: "Appointment marked as completed", appointment });
+    res.status(200).json({
+      success: true,
+      message: "Appointment marked as completed",
+      appointment,
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
   }
 };

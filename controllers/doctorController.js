@@ -8,37 +8,54 @@ export const getDoctorDashboard = async (req, res) => {
 
     const today = new Date().toISOString().split("T")[0];
 
-    // 📊 Aggregations
     const [
-      totalAppointments,
       todayAppointments,
       totalPatients,
-      earnings,
-      payments,
+      onlinePayments,
+      offlinePayments,
       latestBookings,
     ] = await Promise.all([
-      // Total appointments
-      Appointment.countDocuments({ doctorId }),
-
       // Today's appointments
-      Appointment.countDocuments({ doctorId, date: today }),
+      Appointment.countDocuments({
+        doctorId,
+        date: today,
+      }),
 
       // Unique patients
-      Appointment.distinct("patientId", { doctorId }),
+      Appointment.distinct("patientId", {
+        doctorId,
+      }),
 
-      // Earnings (only paid)
+      // Online earnings
       Appointment.aggregate([
-        { $match: { doctorId, paymentStatus: "paid" } },
-        { $group: { _id: null, total: { $sum: "$fees" } } },
-      ]),
-
-      // Payment split
-      Appointment.aggregate([
-        { $match: { doctorId } },
+        {
+          $match: {
+            doctorId,
+            paymentType: "online",
+            paymentStatus: "paid",
+          },
+        },
         {
           $group: {
-            _id: "$paymentType",
-            count: { $sum: 1 },
+            _id: null,
+            total: { $sum: "$amount" },
+          },
+        },
+      ]),
+
+      // Offline earnings
+      Appointment.aggregate([
+        {
+          $match: {
+            doctorId,
+            paymentType: "pay_at_clinic",
+            paymentStatus: "paid",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$amount" },
           },
         },
       ]),
@@ -53,23 +70,28 @@ export const getDoctorDashboard = async (req, res) => {
     res.json({
       success: true,
 
-      totalAppointments,
       todayAppointments,
 
       totalPatients: totalPatients.length,
 
-      totalEarnings: earnings[0]?.total || 0,
+      earnings: {
+        online: onlinePayments[0]?.total || 0,
+        offline: offlinePayments[0]?.total || 0,
+      },
 
-      payments,
+      totalEarnings:
+        (onlinePayments[0]?.total || 0) + (offlinePayments[0]?.total || 0),
 
       latestBookings,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 };
-
 export const getAllSearchDoctors = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
