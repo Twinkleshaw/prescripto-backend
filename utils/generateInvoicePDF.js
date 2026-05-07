@@ -48,16 +48,28 @@ export const generateInvoicePDF = async (appointment) => {
     tokenNumber,
   });
 
-  const browser = await puppeteer.launch({
-    args: [
-      ...chromium.args,
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
-    ],
-    executablePath: await chromium.executablePath(),
-    headless: true,
-  });
+  const isProduction = process.env.NODE_ENV === "production";
+
+  const browser = await puppeteer.launch(
+    isProduction
+      ? {
+          args: [
+            ...chromium.args,
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+          ],
+          executablePath: await chromium.executablePath(),
+          headless: true,
+        }
+      : {
+          executablePath:
+            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          headless: true,
+        },
+  );
+
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
