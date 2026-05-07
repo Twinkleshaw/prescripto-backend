@@ -1,5 +1,7 @@
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium";
+import { execSync } from "child_process";
+import fs from "fs";
 /**
  * Generates a polished invoice PDF using Puppeteer.
  * Returns a Buffer containing the PDF bytes.
@@ -50,6 +52,19 @@ export const generateInvoicePDF = async (appointment) => {
 
   const isProduction = process.env.NODE_ENV === "production";
 
+  let executablePath;
+  if (isProduction) {
+    executablePath = await chromium.executablePath();
+    // Fix permissions
+    try {
+      if (fs.existsSync(executablePath)) {
+        execSync(`chmod +x "${executablePath}"`);
+      }
+    } catch (e) {
+      console.log("chmod error:", e.message);
+    }
+  }
+
   const browser = await puppeteer.launch(
     isProduction
       ? {
@@ -58,13 +73,14 @@ export const generateInvoicePDF = async (appointment) => {
             "--no-sandbox",
             "--disable-setuid-sandbox",
             "--disable-dev-shm-usage",
+            "--disable-gpu",
+            "--single-process",
           ],
-          executablePath: await chromium.executablePath(),
-          headless: true,
+          executablePath,
+          headless: chromium.headless,
         }
       : {
-          executablePath:
-            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          executablePath: process.env.CHROME_PATH,
           args: ["--no-sandbox", "--disable-setuid-sandbox"],
           headless: true,
         },
