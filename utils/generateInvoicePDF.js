@@ -1,5 +1,5 @@
-import puppeteer from "puppeteer";
-import { FiUser, FiPlus, FiClock, FiDollarSign } from "react-icons/fi";
+import puppeteer from "puppeteer-core";
+import chromium from "@sparticuz/chromium";
 /**
  * Generates a polished invoice PDF using Puppeteer.
  * Returns a Buffer containing the PDF bytes.
@@ -49,9 +49,15 @@ export const generateInvoicePDF = async (appointment) => {
   });
 
   const browser = await puppeteer.launch({
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [
+      ...chromium.args,
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+    ],
+    executablePath: await chromium.executablePath(),
+    headless: true,
   });
-
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });
