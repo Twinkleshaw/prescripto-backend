@@ -1,6 +1,7 @@
 import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import mongoose from "mongoose";
+import { Parser } from "json2csv";
 
 export const getDoctorDashboard = async (req, res) => {
   try {
@@ -169,19 +170,75 @@ export const getAllSearchDoctors = async (req, res) => {
 export const getAllDoctors = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
+
     const limit = Math.min(50, parseInt(req.query.limit) || 10);
+
     const skip = (page - 1) * limit;
 
-    // 🔥 No filters — pure list
-    const [doctors, total] = await Promise.all([
-      Doctor.find({}).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    const [doctors, total, revenueResult] = await Promise.all([
+      Doctor.aggregate([
+        {
+          $lookup: {
+            from: "appointments",
+            localField: "_id",
+            foreignField: "doctorId",
+            as: "appointments",
+          },
+        },
+
+        {
+          $addFields: {
+            totalAppointments: {
+              $size: "$appointments",
+            },
+
+            totalRevenue: {
+              $sum: "$appointments.amount",
+            },
+          },
+        },
+
+        {
+          $project: {
+            appointments: 0,
+            password: 0,
+          },
+        },
+
+        {
+          $sort: { createdAt: -1 },
+        },
+
+        {
+          $skip: skip,
+        },
+
+        {
+          $limit: limit,
+        },
+      ]),
 
       Doctor.countDocuments(),
+
+      Appointment.aggregate([
+        {
+          $group: {
+            _id: null,
+
+            totalRevenue: {
+              $sum: "$amount",
+            },
+          },
+        },
+      ]),
     ]);
+
+    const totalRevenue = revenueResult[0]?.totalRevenue || 0;
 
     res.json({
       success: true,
       total,
+      totalRevenue,
       page,
       limit,
       totalPages: Math.ceil(total / limit),
@@ -189,7 +246,10 @@ export const getAllDoctors = async (req, res) => {
     });
   } catch (error) {
     console.error("getAllDoctors error:", error);
-    res.status(500).json({ message: "Server error" });
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
@@ -322,6 +382,69 @@ export const deleteDoctor = async (req, res) => {
   } catch (err) {
     res.status(500).json({
       message: err.message,
+    });
+  }
+};
+
+export const exportDoctorsCSV = async (req, res) => {
+  try {
+    const doctors = await Doctor.aggregate([
+      {
+        $lookup: {
+          from: "appointments",
+          localField: "_id",
+          foreignField: "doctorId",
+          as: "appointments",
+        },
+      },
+
+      {
+        $addFields: {
+          totalAppointments: {
+            $size: "$appointments",
+          },
+
+          totalRevenue: {
+            $sum: "$appointments.amount",
+          },
+        },
+      },
+
+      {
+        $project: {
+          password: 0,
+          appointments: 0,
+        },
+      },
+    ]);
+
+    // fields for CSV
+    const fields = [
+      "name",
+      "email",
+      "phone",
+      "speciality",
+      "experience",
+      "fees",
+      "totalAppointments",
+      "totalRevenue",
+      "createdAt",
+    ];
+
+    const json2csv = new Parser({ fields });
+
+    const csv = json2csv.parse(doctors);
+
+    res.header("Content-Type", "text/csv");
+
+    res.attachment("doctors-report.csv");
+
+    return res.send(csv);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message: "CSV export failed",
     });
   }
 };

@@ -39,6 +39,31 @@ export const getAppointments = async (req, res) => {
     const totalDoctors = await Doctor.countDocuments();
     const totalPatients = await Patient.countDocuments();
 
+    // 🔥 payment stats
+    const totalPaymentResult = await Appointment.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+
+          totalPayment: {
+            $sum: "$amount",
+          },
+
+          totalOfflinePayments: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentType", "pay_at_clinic"] }, "$amount", 0],
+            },
+          },
+        },
+      },
+    ]);
+
+    const totalPayment = totalPaymentResult[0]?.totalPayment || 0;
+
+    const totalOfflinePayments =
+      totalPaymentResult[0]?.totalOfflinePayments || 0;
+
     // 📦 data
     const appointments = await Appointment.find(filter)
       .populate("doctorId", "name speciality")
@@ -52,6 +77,8 @@ export const getAppointments = async (req, res) => {
       totalAppointments,
       totalDoctors,
       totalPatients,
+      totalPayment,
+      totalOfflinePayments,
       appointments,
     });
   } catch (error) {

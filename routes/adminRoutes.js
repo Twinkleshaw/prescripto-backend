@@ -2,6 +2,7 @@ import express from "express";
 import { authenticate, authorizeRoles } from "../middleware/authMiddleware.js";
 import {
   deleteDoctor,
+  exportDoctorsCSV,
   getAllDoctors,
   updateDoctor,
 } from "../controllers/doctorController.js";
@@ -10,6 +11,12 @@ import { getAllPatients } from "../controllers/patientController.js";
 const router = express.Router();
 
 router.get("/doctors", authenticate, authorizeRoles("admin"), getAllDoctors);
+router.get(
+  "/export-csv",
+  authenticate,
+  authorizeRoles("admin"),
+  exportDoctorsCSV,
+);
 
 // Admin updates any doctor
 router.put(
