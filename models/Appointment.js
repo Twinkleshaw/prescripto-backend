@@ -2,9 +2,17 @@ import mongoose from "mongoose";
 
 const appointmentSchema = new mongoose.Schema(
   {
+    // WHO booked it (the logged-in user — you)
+    bookedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Patient",
+      required: true,
+    },
+
     patientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Patient",
+      default: null,
     },
 
     doctorId: {

@@ -87,6 +87,224 @@ export const getAppointments = async (req, res) => {
   }
 };
 
+export const getPatientsSummary = async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    // 📄 Pagination
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+
+    const limit = Math.min(20, parseInt(req.query.limit) || 10);
+
+    const skip = (page - 1) * limit;
+
+    // 🔍 Match filter
+    let matchFilter = {};
+
+    // 🔒 Doctor restriction
+    if (req.user.role === "doctor") {
+      matchFilter.doctorId = new mongoose.Types.ObjectId(req.user.id);
+    }
+
+    // 🔍 Search
+    if (search) {
+      matchFilter.patientName = {
+        $regex: search.trim(),
+        $options: "i",
+      };
+    }
+
+    // =========================
+    // TOTAL UNIQUE PATIENTS
+    // =========================
+
+    const totalPatientsResult = await Appointment.aggregate([
+      {
+        $match: matchFilter,
+      },
+
+      {
+        $group: {
+          _id: {
+            patientName: "$patientName",
+            patientAge: "$patientAge",
+            bookedBy: "$bookedBy",
+          },
+        },
+      },
+
+      {
+        $count: "total",
+      },
+    ]);
+
+    const totalPatients = totalPatientsResult[0]?.total || 0;
+
+    // =========================
+    // PAGINATED PATIENTS
+    // =========================
+
+    const patients = await Appointment.aggregate([
+      // STEP 1 → Filter
+      {
+        $match: matchFilter,
+      },
+
+      // STEP 2 → Latest first
+      {
+        $sort: {
+          createdAt: -1,
+        },
+      },
+
+      // STEP 3 → Unique patients
+      {
+        $group: {
+          _id: {
+            patientName: "$patientName",
+            patientAge: "$patientAge",
+            bookedBy: "$bookedBy",
+          },
+
+          patientName: {
+            $first: "$patientName",
+          },
+
+          patientAge: {
+            $first: "$patientAge",
+          },
+
+          bookedBy: {
+            $first: "$bookedBy",
+          },
+          doctorId: {
+            $first: "$doctorId",
+          },
+
+          latestAppointmentDate: {
+            $first: "$date",
+          },
+
+          latestAppointmentCreatedAt: {
+            $first: "$createdAt",
+          },
+
+          totalAppointments: {
+            $sum: 1,
+          },
+
+          latestStatus: {
+            $first: "$status",
+          },
+        },
+      },
+
+      // STEP 4 → Sort recent patient first
+      {
+        $sort: {
+          latestAppointmentCreatedAt: -1,
+        },
+      },
+
+      // STEP 5 → Pagination
+      {
+        $skip: skip,
+      },
+
+      {
+        $limit: limit,
+      },
+
+      // STEP 6 → Populate user
+      {
+        $lookup: {
+          from: "patients", // ⚠️ change if needed
+          localField: "bookedBy",
+          foreignField: "_id",
+          as: "user",
+        },
+      },
+
+      {
+        $lookup: {
+          from: "doctors",
+          localField: "doctorId",
+          foreignField: "_id",
+          as: "doctor",
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$doctor",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      {
+        $unwind: {
+          path: "$user",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+
+      // STEP 7 → Final response shape
+      {
+        $project: {
+          _id: 0,
+
+          patientName: 1,
+
+          patientAge: 1,
+
+          latestAppointmentDate: 1,
+
+          latestAppointmentCreatedAt: 1,
+
+          totalAppointments: 1,
+
+          latestStatus: 1,
+
+          bookedBy: 1,
+          doctor: {
+            _id: "$doctor._id",
+            name: "$doctor.name",
+            speciality: "$doctor.speciality",
+            profileImage: "$doctor.profileImage",
+          },
+
+          user: {
+            _id: "$user._id",
+            name: "$user.name",
+            phone: "$user.phone",
+            email: "$user.email",
+          },
+        },
+      },
+    ]);
+
+    return res.json({
+      success: true,
+
+      page,
+
+      limit,
+
+      totalPatients,
+
+      totalPages: Math.ceil(totalPatients / limit),
+
+      patients,
+    });
+  } catch (error) {
+    console.error("GET PATIENT SUMMARY ERROR:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
 export const getMyAppointments = async (req, res) => {
   try {
     const patientId = req.user.id;

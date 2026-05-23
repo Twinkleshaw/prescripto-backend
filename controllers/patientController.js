@@ -121,7 +121,7 @@ export const bookAppointment = async (req, res) => {
     }
 
     const appointment = await Appointment.create({
-      patientId: req.user.id,
+      bookedBy: req.user.id,
       doctorId,
       date,
       time,

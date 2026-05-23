@@ -7,6 +7,7 @@ import {
   updateDoctor,
 } from "../controllers/doctorController.js";
 import { getAllPatients } from "../controllers/patientController.js";
+import { getPatientsSummary } from "../controllers/appointmentController.js";
 
 const router = express.Router();
 
@@ -16,6 +17,13 @@ router.get(
   authenticate,
   authorizeRoles("admin"),
   exportDoctorsCSV,
+);
+
+router.get(
+  "/getAdminPatients",
+  authenticate,
+  authorizeRoles("admin"),
+  getPatientsSummary,
 );
 
 // Admin updates any doctor
