@@ -7,41 +7,77 @@ export const getAppointments = async (req, res) => {
   try {
     const { doctorId, date, search } = req.query;
 
+    // 📄 Pagination
     const page = Math.max(1, parseInt(req.query.page) || 1);
+
     const limit = Math.min(20, parseInt(req.query.limit) || 10);
+
     const skip = (page - 1) * limit;
 
-    let filter = {};
+    // 🔥 Used for stats/cards
+    let baseFilter = {};
 
-    // 🔒 ROLE-BASED FILTER (FIRST & STRICT)
+    // 🔥 Used only for table
+    let tableFilter = {};
+
     if (req.user.role === "doctor") {
-      // ✅ Always restrict to logged-in doctor
-      filter.doctorId = new mongoose.Types.ObjectId(req.user.id);
+      baseFilter.doctorId = new mongoose.Types.ObjectId(req.user.id);
     } else {
-      // 👑 Admin can filter by doctor
       if (doctorId && mongoose.Types.ObjectId.isValid(doctorId)) {
-        filter.doctorId = new mongoose.Types.ObjectId(doctorId);
+        baseFilter.doctorId = new mongoose.Types.ObjectId(doctorId);
       }
     }
 
-    // 📅 Date filter
     if (date) {
-      filter.date = date;
+      baseFilter.date = date;
     }
 
-    // 🔍 Patient name search
+    tableFilter = { ...baseFilter };
+
+    // 🔍 Search ONLY affects table
     if (search) {
-      filter.patientName = { $regex: search.trim(), $options: "i" };
+      tableFilter.patientName = {
+        $regex: search.trim(),
+        $options: "i",
+      };
     }
 
-    // 🔥 counts
-    const totalAppointments = await Appointment.countDocuments(filter);
+    const totalAppointments = await Appointment.countDocuments(baseFilter);
+
     const totalDoctors = await Doctor.countDocuments();
+
     const totalPatients = await Patient.countDocuments();
 
-    // 🔥 payment stats
+    const statusCounts = await Appointment.aggregate([
+      {
+        $match: baseFilter,
+      },
+
+      {
+        $group: {
+          _id: "$status",
+
+          count: {
+            $sum: 1,
+          },
+        },
+      },
+    ]);
+
+    const totalCompleted =
+      statusCounts.find((s) => s._id === "completed")?.count || 0;
+
+    const totalPending =
+      statusCounts.find((s) => s._id === "booked")?.count || 0;
+
+    const totalCancelled =
+      statusCounts.find((s) => s._id === "cancelled")?.count || 0;
+
     const totalPaymentResult = await Appointment.aggregate([
-      { $match: filter },
+      {
+        $match: baseFilter,
+      },
+
       {
         $group: {
           _id: null,
@@ -52,7 +88,13 @@ export const getAppointments = async (req, res) => {
 
           totalOfflinePayments: {
             $sum: {
-              $cond: [{ $eq: ["$paymentType", "pay_at_clinic"] }, "$amount", 0],
+              $cond: [
+                {
+                  $eq: ["$paymentType", "pay_at_clinic"],
+                },
+                "$amount",
+                0,
+              ],
             },
           },
         },
@@ -64,8 +106,7 @@ export const getAppointments = async (req, res) => {
     const totalOfflinePayments =
       totalPaymentResult[0]?.totalOfflinePayments || 0;
 
-    // 📦 data
-    const appointments = await Appointment.find(filter)
+    const appointments = await Appointment.find(tableFilter)
       .populate("doctorId", "name speciality")
       .populate("patientId", "name")
       .sort({ createdAt: -1 })
@@ -74,16 +115,37 @@ export const getAppointments = async (req, res) => {
 
     return res.json({
       success: true,
+
+      page,
+
+      limit,
+
       totalAppointments,
+
       totalDoctors,
+
       totalPatients,
+
+      totalCompleted,
+
+      totalPending,
+
+      totalCancelled,
+
       totalPayment,
+
       totalOfflinePayments,
+
+      totalPages: Math.ceil(totalAppointments / limit),
+
       appointments,
     });
   } catch (error) {
     console.error("GET APPOINTMENTS ERROR:", error);
-    return res.status(500).json({ message: "Server error" });
+
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
@@ -251,7 +313,15 @@ export const getPatientsSummary = async (req, res) => {
       // STEP 7 → Final response shape
       {
         $project: {
-          _id: 0,
+          _id: {
+            $concat: [
+              "$patientName",
+              "-",
+              { $toString: "$patientAge" },
+              "-",
+              { $toString: "$bookedBy" },
+            ],
+          },
 
           patientName: 1,
 

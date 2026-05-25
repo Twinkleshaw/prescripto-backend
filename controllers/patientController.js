@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
@@ -207,5 +208,120 @@ export const getPatientById = async (req, res) => {
       return res.status(400).json({ message: "Invalid patient ID" });
     }
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getUserByBookedBy = async (req, res) => {
+  try {
+    const { bookedBy } = req.params;
+
+    // ✅ Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(bookedBy)) {
+      return res.status(400).json({
+        message: "Invalid user id",
+      });
+    }
+
+    // =========================
+    // USER INFO
+    // =========================
+
+    const user = await Patient.findById(bookedBy).select(
+      "name email phone profileImage",
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // =========================
+    // TOTAL APPOINTMENTS
+    // =========================
+
+    const totalAppointments = await Appointment.countDocuments({
+      bookedBy,
+    });
+
+    // =========================
+    // FAMILY MEMBERS / PATIENTS
+    // =========================
+
+    const familyPatients = await Appointment.aggregate([
+      {
+        $match: {
+          bookedBy: new mongoose.Types.ObjectId(bookedBy),
+        },
+      },
+
+      {
+        $group: {
+          _id: {
+            patientName: "$patientName",
+            patientAge: "$patientAge",
+          },
+
+          totalVisits: {
+            $sum: 1,
+          },
+
+          latestAppointment: {
+            $max: "$createdAt",
+          },
+        },
+      },
+
+      {
+        $project: {
+          _id: 0,
+
+          patientName: "$_id.patientName",
+
+          patientAge: "$_id.patientAge",
+
+          totalVisits: 1,
+
+          latestAppointment: 1,
+        },
+      },
+
+      {
+        $sort: {
+          latestAppointment: -1,
+        },
+      },
+    ]);
+
+    // =========================
+    // RECENT APPOINTMENTS
+    // =========================
+
+    const recentAppointments = await Appointment.find({
+      bookedBy,
+    })
+      .populate("doctorId", "name speciality")
+      .sort({ createdAt: -1 })
+      .limit(5);
+
+    return res.json({
+      success: true,
+
+      user,
+
+      totalAppointments,
+
+      totalFamilyMembers: familyPatients.length,
+
+      familyPatients,
+
+      recentAppointments,
+    });
+  } catch (error) {
+    console.error("GET USER BY BOOKEDBY ERROR:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };

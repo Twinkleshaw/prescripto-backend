@@ -8,14 +8,14 @@ import twilio from "twilio";
 import Otp from "../models/Otp.js";
 
 // Twilio client
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN,
-);
 
 // ================= SEND OTP =================
 export const sendOTP = async (req, res) => {
   try {
+    const client = twilio(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN,
+    );
     let { phone } = req.body;
 
     if (!phone) {

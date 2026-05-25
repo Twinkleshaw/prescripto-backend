@@ -6,7 +6,10 @@ import {
   getAllDoctors,
   updateDoctor,
 } from "../controllers/doctorController.js";
-import { getAllPatients } from "../controllers/patientController.js";
+import {
+  getAllPatients,
+  getUserByBookedBy,
+} from "../controllers/patientController.js";
 import { getPatientsSummary } from "../controllers/appointmentController.js";
 
 const router = express.Router();
@@ -41,6 +44,13 @@ router.delete(
   authenticate,
   authorizeRoles("admin"),
   deleteDoctor,
+);
+
+router.get(
+  "/user/:bookedBy",
+  authenticate,
+  authorizeRoles("admin"),
+  getUserByBookedBy,
 );
 
 export default router;
