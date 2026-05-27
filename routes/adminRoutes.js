@@ -11,6 +11,10 @@ import {
   getUserByBookedBy,
 } from "../controllers/patientController.js";
 import { getPatientsSummary } from "../controllers/appointmentController.js";
+import {
+  changeAdminPassword,
+  updateAdminProfile,
+} from "../controllers/adminController.js";
 
 const router = express.Router();
 
@@ -51,6 +55,20 @@ router.get(
   authenticate,
   authorizeRoles("admin"),
   getUserByBookedBy,
+);
+
+router.put(
+  "/profile",
+  authenticate,
+  authorizeRoles("admin"),
+  updateAdminProfile,
+);
+
+router.put(
+  "/change-password",
+  authenticate,
+  authorizeRoles("admin"),
+  changeAdminPassword,
 );
 
 export default router;

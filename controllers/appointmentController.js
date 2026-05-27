@@ -2,6 +2,7 @@ import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
 import mongoose from "mongoose";
+import { Parser } from "json2csv";
 
 export const getAppointments = async (req, res) => {
   try {
@@ -502,6 +503,77 @@ export const completeAppointment = async (req, res) => {
     res.status(500).json({
       success: false,
       message: err.message,
+    });
+  }
+};
+
+export const exportAppointmentsCSV = async (req, res) => {
+  try {
+    let filter = {};
+
+    // 🔒 Doctor restriction
+    if (req.user.role === "doctor") {
+      filter.doctorId = req.user.id;
+    }
+
+    // 📦 Fetch appointments
+    const appointments = await Appointment.find(filter)
+      .populate("doctorId", "name speciality")
+      .populate("bookedBy", "name phone email")
+      .sort({ createdAt: -1 });
+
+    // 📄 CSV formatted data
+    const csvData = appointments.map((appt) => ({
+      Appointment_ID: appt._id,
+
+      Patient_Name: appt.patientName,
+
+      Patient_Age: appt.patientAge,
+
+      Doctor_Name: appt.doctorId?.name || "",
+
+      Doctor_Speciality: appt.doctorId?.speciality || "",
+
+      Appointment_Date: appt.date,
+
+      Appointment_Time: appt.time,
+
+      Token_Number: appt.tokenNumber,
+
+      Payment_Type: appt.paymentType,
+
+      Payment_Status: appt.paymentStatus,
+
+      Amount: appt.amount,
+
+      Status: appt.status,
+
+      Booked_By_Name: appt.bookedBy?.name || "",
+
+      Booked_By_Phone: appt.bookedBy?.phone || "",
+
+      Booked_By_Email: appt.bookedBy?.email || "",
+
+      Created_At: appt.createdAt,
+    }));
+
+    // 📄 Convert to CSV
+    const json2csv = new Parser();
+
+    const csv = json2csv.parse(csvData);
+
+    // 📥 Download response
+    res.header("Content-Type", "text/csv");
+
+    res.attachment(`appointments-${Date.now()}.csv`);
+
+    return res.send(csv);
+  } catch (error) {
+    console.error("EXPORT CSV ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export CSV",
     });
   }
 };

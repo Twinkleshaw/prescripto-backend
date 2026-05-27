@@ -3,6 +3,7 @@ import { authenticate, authorizeRoles } from "../middleware/authMiddleware.js";
 import {
   cancelAppointment,
   completeAppointment,
+  exportAppointmentsCSV,
   getAppointments,
   getMyAppointments,
 } from "../controllers/appointmentController.js";
@@ -33,5 +34,7 @@ router.get(
   authorizeRoles("patient"),
   downloadInvoice,
 );
+
+router.get("/export/csv", authenticate, exportAppointmentsCSV);
 
 export default router;
