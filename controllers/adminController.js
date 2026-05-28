@@ -23,7 +23,7 @@ export const updateAdminProfile = async (req, res) => {
     }
 
     await admin.save();
-
+    console.log(admin.profileImage);
     return res.json({
       success: true,
       message: "Profile updated successfully",
@@ -36,6 +36,7 @@ export const updateAdminProfile = async (req, res) => {
         updatedAt: admin.updatedAt,
       },
     });
+    console.log(admin.profileImage);
   } catch (error) {
     console.error("UPDATE ADMIN PROFILE ERROR:", error);
     return res.status(500).json({ message: "Server error" });
