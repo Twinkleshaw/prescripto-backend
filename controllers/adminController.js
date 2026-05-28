@@ -1,60 +1,44 @@
 import Admin from "../models/Admin.js";
 import bcrypt from "bcryptjs";
-import { getFileUrl } from "../utils/fileHelper.js";
+import { getFilePath } from "../utils/fileHelper.js";
 
 export const updateAdminProfile = async (req, res) => {
   try {
     const adminId = req.user.id;
-
     const { name, phone } = req.body;
 
     const admin = await Admin.findById(adminId);
 
     if (!admin) {
-      return res.status(404).json({
-        message: "Admin not found",
-      });
+      return res.status(404).json({ message: "Admin not found" });
     }
 
     // ✅ update normal fields
-    admin.name = name || admin.name;
+    if (name) admin.name = name;
+    if (phone) admin.phone = phone;
 
-    admin.phone = phone || admin.phone;
-
-    // ✅ image upload handling
+    // ✅ image upload — store relative path only, NOT full URL
     if (req.file) {
-      admin.profileImage = getFileUrl(
-        req,
-        "uploads/profile",
-        req.file.filename,
-      );
+      admin.profileImage = `uploads/profile/${req.file.filename}`;
     }
 
     await admin.save();
 
     return res.json({
       success: true,
-
       message: "Profile updated successfully",
-
       admin: {
         _id: admin._id,
-
         name: admin.name,
-
         email: admin.email,
-
         phone: admin.phone,
-
         profileImage: admin.profileImage,
+        updatedAt: admin.updatedAt,
       },
     });
   } catch (error) {
     console.error("UPDATE ADMIN PROFILE ERROR:", error);
-
-    return res.status(500).json({
-      message: "Server error",
-    });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
