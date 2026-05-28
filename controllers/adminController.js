@@ -1,11 +1,12 @@
 import Admin from "../models/Admin.js";
 import bcrypt from "bcryptjs";
+import { getFileUrl } from "../utils/fileHelper.js";
 
 export const updateAdminProfile = async (req, res) => {
   try {
     const adminId = req.user.id;
 
-    const { name, phone, profileImage } = req.body;
+    const { name, phone } = req.body;
 
     const admin = await Admin.findById(adminId);
 
@@ -15,12 +16,19 @@ export const updateAdminProfile = async (req, res) => {
       });
     }
 
-    // ✅ update allowed fields only
+    // ✅ update normal fields
     admin.name = name || admin.name;
 
     admin.phone = phone || admin.phone;
 
-    admin.profileImage = profileImage || admin.profileImage;
+    // ✅ image upload handling
+    if (req.file) {
+      admin.profileImage = getFileUrl(
+        req,
+        "uploads/profile",
+        req.file.filename,
+      );
+    }
 
     await admin.save();
 
