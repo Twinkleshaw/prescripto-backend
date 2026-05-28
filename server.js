@@ -10,6 +10,9 @@ import adminRoutes from "./routes/adminRoutes.js";
 import appointmentRoutes from "./routes/appointmentRoutes.js";
 import dns from "dns";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 if (process.env.NODE_ENV !== "production") {
   dns.setServers(["1.1.1.1", "8.8.8.8"]);
 }
@@ -29,6 +32,8 @@ app.use(
   }),
 );
 app.use(express.json());
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/", (req, res) => {
   res.send("API running");
