@@ -3,6 +3,7 @@ import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
 import { getFileUrl } from "../utils/fileHelper.js";
+import PatientProfile from "../models/PatientProfile.js";
 
 const generateTimeFromToken = (startTime, token, slotDuration) => {
   const [hours, minutes] = startTime.split(":").map(Number);
@@ -85,34 +86,73 @@ export const bookAppointment = async (req, res) => {
       patientPhone,
     } = req.body;
 
+    if (!doctorId || !date || !patientName || !patientAge) {
+      return res.status(400).json({
+        message: "Missing required fields",
+      });
+    }
+
     const doctor = await Doctor.findById(doctorId);
 
     if (!doctor) {
-      return res.status(404).json({ message: "Doctor not found" });
+      return res.status(404).json({
+        message: "Doctor not found",
+      });
     }
 
-    // 🧠 Get day name (Monday, Tuesday...)
-    const dayName = new Date(date).toLocaleDateString("en-US", {
-      weekday: "long",
+    let patientProfile = null;
+
+    // Prefer phone if available
+    if (patientPhone) {
+      patientProfile = await PatientProfile.findOne({
+        createdBy: req.user.id,
+        phone: patientPhone,
+      });
+    }
+
+    console.log(req.user.id);
+
+    // Fallback to name search
+    if (!patientProfile) {
+      patientProfile = await PatientProfile.findOne({
+        createdBy: req.user.id,
+        name: patientName.trim(),
+      });
+    }
+
+    // Create profile if not found
+    if (!patientProfile) {
+      patientProfile = await PatientProfile.create({
+        createdBy: req.user.id,
+        name: patientName,
+        age: patientAge,
+        phone: patientPhone,
+      });
+    }
+
+    // =========================
+    // TOKEN GENERATION
+    // =========================
+
+    const existing = await Appointment.find({
+      doctorId,
+      date,
     });
-
-    const startTime = doctor.startTime;
-    const endTime = doctor.endTime;
-    const slotDuration = doctor.slotDuration;
-
-    // 📊 Existing bookings
-    const existing = await Appointment.find({ doctorId, date });
 
     const tokenNumber = existing.length + 1;
 
-    // ⏰ Generate time
-    const time = generateTimeFromToken(startTime, tokenNumber, slotDuration);
+    const time = generateTimeFromToken(
+      doctor.startTime,
+      tokenNumber,
+      doctor.slotDuration,
+    );
 
-    // 🚫 Optional: check if exceeds endTime
-    const [endH, endM] = endTime.split(":").map(Number);
+    const [endH, endM] = doctor.endTime.split(":").map(Number);
+
     const endMinutes = endH * 60 + endM;
 
     const [tH, tM] = time.split(":").map(Number);
+
     const timeMinutes = tH * 60 + tM;
 
     if (timeMinutes >= endMinutes) {
@@ -121,27 +161,49 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
+    // =========================
+    // CREATE APPOINTMENT
+    // =========================
+
     const appointment = await Appointment.create({
       bookedBy: req.user.id,
+
+      patientId: patientProfile._id,
+
       doctorId,
+
       date,
+
       time,
+
       amount: doctor.fees,
+
       tokenNumber,
+
       patientName,
+
       patientAge,
+
       patientPhone,
+
       paymentType,
+
       paymentStatus: "pending",
     });
 
-    res.json({
+    return res.json({
+      success: true,
+
       message: "Appointment booked",
+
       appointment,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("BOOK APPOINTMENT ERROR:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };
 
