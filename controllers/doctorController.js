@@ -9,106 +9,203 @@ export const getDoctorDashboard = async (req, res) => {
 
     const today = new Date().toISOString().split("T")[0];
 
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const now = new Date();
+
+    const startOfWeek = new Date(now);
+    startOfWeek.setHours(0, 0, 0, 0);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setHours(23, 59, 59, 999);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+    // =========================
+
     const [
-      todayAppointments,
-      totalPatients,
-      onlinePayments,
-      offlinePayments,
-      todayEarnings,
+      totalEarningsResult,
+
+      onlinePaymentsResult,
+
+      offlinePaymentsResult,
+
+      weeklyAppointments,
+
+      todayCompletedAppointments,
+
+      pendingAppointments,
+
+      newPatientsToday,
+
       latestBookings,
+
+      weeklyAnalyticsRaw,
     ] = await Promise.all([
-      // Today's appointments
+      Appointment.aggregate([
+        {
+          $match: {
+            doctorId,
+            paymentStatus: "paid",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: "$amount",
+            },
+          },
+        },
+      ]),
+      Appointment.aggregate([
+        {
+          $match: {
+            doctorId,
+            paymentStatus: "paid",
+            paymentType: "online",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: "$amount",
+            },
+          },
+        },
+      ]),
+      Appointment.aggregate([
+        {
+          $match: {
+            doctorId,
+            paymentStatus: "paid",
+            paymentType: "pay_at_clinic",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: "$amount",
+            },
+          },
+        },
+      ]),
+
+      Appointment.countDocuments({
+        doctorId,
+        createdAt: {
+          $gte: startOfWeek,
+          $lte: endOfWeek,
+        },
+      }),
+
       Appointment.countDocuments({
         doctorId,
         date: today,
+        status: "completed",
       }),
 
-      // Unique patients
+      Appointment.countDocuments({
+        doctorId,
+        status: "booked",
+      }),
+
       Appointment.distinct("patientId", {
         doctorId,
+        createdAt: {
+          $gte: startOfToday,
+          $lte: endOfToday,
+        },
       }),
 
-      // Online earnings
-      Appointment.aggregate([
-        {
-          $match: {
-            doctorId,
-            paymentType: "online",
-            paymentStatus: "paid",
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: "$amount" },
-          },
-        },
-      ]),
-
-      // Offline earnings
-      Appointment.aggregate([
-        {
-          $match: {
-            doctorId,
-            paymentType: "pay_at_clinic",
-            paymentStatus: "paid",
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: "$amount" },
-          },
-        },
-      ]),
-
-      // Today's earnings
-      Appointment.aggregate([
-        {
-          $match: {
-            doctorId,
-            date: today,
-            paymentStatus: "paid",
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: "$amount" },
-          },
-        },
-      ]),
-
-      // Latest bookings
       Appointment.find({ doctorId })
+        .populate("patientId", "name age")
         .sort({ createdAt: -1 })
-        .limit(5)
-        .populate("patientId", "name"),
+        .limit(5),
+
+      Appointment.aggregate([
+        {
+          $match: {
+            doctorId,
+            createdAt: {
+              $gte: startOfWeek,
+              $lte: endOfWeek,
+            },
+          },
+        },
+        {
+          $group: {
+            _id: {
+              $dayOfWeek: "$createdAt",
+            },
+            count: {
+              $sum: 1,
+            },
+          },
+        },
+      ]),
     ]);
 
-    res.json({
+    const analyticsMap = {
+      1: "Sun",
+      2: "Mon",
+      3: "Tue",
+      4: "Wed",
+      5: "Thu",
+      6: "Fri",
+      7: "Sat",
+    };
+
+    const weeklyAnalytics = [
+      { day: "Mon", count: 0 },
+      { day: "Tue", count: 0 },
+      { day: "Wed", count: 0 },
+      { day: "Thu", count: 0 },
+      { day: "Fri", count: 0 },
+      { day: "Sat", count: 0 },
+      { day: "Sun", count: 0 },
+    ];
+
+    weeklyAnalyticsRaw.forEach((item) => {
+      const day = analyticsMap[item._id];
+
+      const index = weeklyAnalytics.findIndex((d) => d.day === day);
+
+      if (index !== -1) {
+        weeklyAnalytics[index].count = item.count;
+      }
+    });
+
+    return res.json({
       success: true,
 
-      todayAppointments,
+      totalEarnings: totalEarningsResult[0]?.total || 0,
+      onlinePayments: onlinePaymentsResult[0]?.total || 0,
 
-      todayEarnings: todayEarnings[0]?.total || 0,
+      offlinePayments: offlinePaymentsResult[0]?.total || 0,
 
-      totalPatients: totalPatients.length,
+      weeklyAppointments,
 
-      earnings: {
-        online: onlinePayments[0]?.total || 0,
-        offline: offlinePayments[0]?.total || 0,
-      },
+      todayCompletedAppointments,
 
-      totalEarnings:
-        (onlinePayments[0]?.total || 0) + (offlinePayments[0]?.total || 0),
+      pendingAppointments,
+
+      newPatientsToday: newPatientsToday.length,
 
       latestBookings,
+
+      weeklyAnalytics,
     });
   } catch (error) {
-    console.error(error);
+    console.error("DOCTOR DASHBOARD ERROR:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
     });
   }
