@@ -2,6 +2,7 @@ import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import mongoose from "mongoose";
 import { Parser } from "json2csv";
+import { getFileUrl } from "../utils/fileHelper.js";
 
 export const getDoctorDashboard = async (req, res) => {
   try {
@@ -353,8 +354,6 @@ export const getAllDoctors = async (req, res) => {
 export const updateDoctor = async (req, res) => {
   try {
     const role = req.user.role;
-
-    // 🔒 Doctor can only update themselves
     const doctorId = role === "admin" ? req.params.id : req.user.id;
 
     if (role === "doctor" && req.params.id && req.params.id !== req.user.id) {
@@ -363,7 +362,6 @@ export const updateDoctor = async (req, res) => {
 
     let allowedFields = [];
 
-    // 👨‍💼 Admin fields
     if (role === "admin") {
       allowedFields = [
         "speciality",
@@ -378,14 +376,12 @@ export const updateDoctor = async (req, res) => {
         "isActive",
         "address",
         "googleMapLink",
-        "image",
         "startTime",
         "endTime",
         "slotDuration",
       ];
     }
 
-    // 👨‍⚕️ Doctor fields
     if (role === "doctor") {
       allowedFields = [
         "address",
@@ -400,24 +396,45 @@ export const updateDoctor = async (req, res) => {
       ];
     }
 
-    // 🔒 Filter only allowed fields
     const updates = {};
-    for (let key of allowedFields) {
-      if (req.body[key] !== undefined) {
-        updates[key] = req.body[key];
+    const body = req.body || {};
+
+    // image upload
+    if (req.file) {
+      updates.image = getFileUrl(req, "uploads/profile", req.file.filename);
+    }
+
+    // only update fields sent by user
+    for (const key of allowedFields) {
+      if (body[key] !== undefined) {
+        updates[key] = body[key];
       }
     }
 
-    const updatedDoctor = await Doctor.findByIdAndUpdate(doctorId, updates, {
-      new: true,
-    }).select("-password");
+    // nothing to update
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({
+        message: "No fields provided for update",
+      });
+    }
 
-    res.json({
+    const updatedDoctor = await Doctor.findByIdAndUpdate(
+      doctorId,
+      { $set: updates },
+      { new: true, runValidators: true },
+    ).select("-password");
+
+    return res.status(200).json({
       message: "Doctor updated successfully",
       doctor: updatedDoctor,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Update Doctor Error:", error);
+
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
 

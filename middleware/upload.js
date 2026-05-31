@@ -6,7 +6,7 @@ const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     let folder = "uploads/misc";
 
-    if (file.fieldname === "profileImage") {
+    if (file.fieldname === "profileImage" || file.fieldname === "image") {
       folder = "uploads/profile";
     } else if (file.fieldname === "document") {
       folder = "uploads/documents";
@@ -18,13 +18,14 @@ const storage = multer.diskStorage({
 
     cb(null, folder);
   },
-    filename: (req, file, cb) => {
-        const uniqueName = Date.now() + "-" + Math.random() + path.extname(file.originalname);
-        cb(null, uniqueName);
-    },
+  filename: (req, file, cb) => {
+    const uniqueName =
+      Date.now() + "-" + Math.random() + path.extname(file.originalname);
+    cb(null, uniqueName);
+  },
 });
 
 export const upload = multer({
-    storage,
-    limits: { fileSize: 1 * 1024 * 1024 }, // 1MB
+  storage,
+  limits: { fileSize: 1 * 1024 * 1024 }, // 1MB
 });

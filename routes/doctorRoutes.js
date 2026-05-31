@@ -5,6 +5,7 @@ import {
   updateDoctor,
 } from "../controllers/doctorController.js";
 import { getAllPatients } from "../controllers/patientController.js";
+import { upload } from "../middleware/upload.js";
 
 const router = express.Router();
 
@@ -13,6 +14,14 @@ router.put(
   "/update-profile",
   authenticate,
   authorizeRoles("doctor"),
+  upload.single("image"),
+  (req, res, next) => {
+    console.log(req.headers["content-type"]);
+    console.log(req.file);
+    console.log(req.body);
+    next();
+  },
+  upload.single("image"),
   updateDoctor,
 );
 

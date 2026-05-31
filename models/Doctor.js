@@ -56,28 +56,6 @@ const doctorSchema = new mongoose.Schema(
       default: 10,
     },
 
-    // logic
-    //     schedule: [
-    //   {
-    //     day: {
-    //       type: String,
-    //       required: true
-    //     },
-    //     startTime: {
-    //       type: String,
-    //       required: true
-    //     },
-    //     endTime: {
-    //       type: String,
-    //       required: true
-    //     },
-    //     slotDuration: {
-    //       type: Number,
-    //       default: 10
-    //     }
-    //   }
-    // ],
-
     fees: {
       type: Number,
       required: false,
