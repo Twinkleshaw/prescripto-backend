@@ -31,7 +31,7 @@ router.patch(
 router.get(
   "/:id/invoice",
   authenticate,
-  authorizeRoles("patient"),
+  authorizeRoles("patient", "admin"),
   downloadInvoice,
 );
 

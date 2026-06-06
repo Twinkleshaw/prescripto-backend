@@ -16,6 +16,7 @@ import {
   updateAdminProfile,
 } from "../controllers/adminController.js";
 import { upload } from "../middleware/upload.js";
+import { getInvoices } from "../controllers/invoiceController.js";
 
 const router = express.Router();
 
@@ -72,5 +73,7 @@ router.put(
   authorizeRoles("admin"),
   changeAdminPassword,
 );
+
+router.get("/invoices", authenticate, authorizeRoles("admin"), getInvoices);
 
 export default router;

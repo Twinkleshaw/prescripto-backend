@@ -378,10 +378,11 @@ export const getPatientsSummary = async (req, res) => {
 
 export const getMyAppointments = async (req, res) => {
   try {
-    const patientId = req.user.id;
     const { date } = req.query;
 
-    let filter = { patientId };
+    let filter = {
+      bookedBy: req.user.id,
+    };
 
     if (date) {
       filter.date = date;
@@ -389,19 +390,22 @@ export const getMyAppointments = async (req, res) => {
 
     const appointments = await Appointment.find(filter)
       .populate("doctorId", "-password")
+      .populate("patientId", "name age")
       .sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       success: true,
       count: appointments.length,
       appointments,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+
+    return res.status(500).json({
+      message: "Server error",
+    });
   }
 };
-
 export const cancelAppointment = async (req, res) => {
   try {
     const appointment = await Appointment.findById(req.params.id);
