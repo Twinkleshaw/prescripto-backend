@@ -96,6 +96,24 @@ const doctorSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Admin",
     },
+
+    bankDetails: {
+      accountHolderName: {
+        type: String,
+      },
+
+      accountNumber: {
+        type: String,
+      },
+
+      ifscCode: {
+        type: String,
+      },
+
+      bankName: {
+        type: String,
+      },
+    },
   },
   { timestamps: true },
 );

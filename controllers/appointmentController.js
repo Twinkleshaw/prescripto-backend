@@ -74,24 +74,38 @@ export const getAppointments = async (req, res) => {
     const totalCancelled =
       statusCounts.find((s) => s._id === "cancelled")?.count || 0;
 
-    const totalPaymentResult = await Appointment.aggregate([
+    const paymentStats = await Appointment.aggregate([
       {
         $match: baseFilter,
       },
-
       {
         $group: {
           _id: null,
 
-          totalPayment: {
+          totalBilling: {
             $sum: "$amount",
           },
 
-          totalOfflinePayments: {
+          totalCollected: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentStatus", "paid"] }, "$amount", 0],
+            },
+          },
+
+          totalPendingAmount: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentStatus", "pending"] }, "$amount", 0],
+            },
+          },
+
+          totalOfflineCollected: {
             $sum: {
               $cond: [
                 {
-                  $eq: ["$paymentType", "pay_at_clinic"],
+                  $and: [
+                    { $eq: ["$paymentType", "pay_at_clinic"] },
+                    { $eq: ["$paymentStatus", "paid"] },
+                  ],
                 },
                 "$amount",
                 0,
@@ -102,10 +116,13 @@ export const getAppointments = async (req, res) => {
       },
     ]);
 
-    const totalPayment = totalPaymentResult[0]?.totalPayment || 0;
+    const totalBilling = paymentStats[0]?.totalBilling || 0;
 
-    const totalOfflinePayments =
-      totalPaymentResult[0]?.totalOfflinePayments || 0;
+    const totalCollected = paymentStats[0]?.totalCollected || 0;
+
+    const totalPendingAmount = paymentStats[0]?.totalPendingAmount || 0;
+
+    const totalOfflineCollected = paymentStats[0]?.totalOfflineCollected || 0;
 
     const appointments = await Appointment.find(tableFilter)
       .populate("doctorId", "name speciality")
@@ -118,24 +135,20 @@ export const getAppointments = async (req, res) => {
       success: true,
 
       page,
-
       limit,
 
       totalAppointments,
-
       totalDoctors,
-
       totalPatients,
 
       totalCompleted,
-
       totalPending,
-
       totalCancelled,
 
-      totalPayment,
-
-      totalOfflinePayments,
+      totalBilling,
+      totalCollected,
+      totalPendingAmount,
+      totalOfflineCollected,
 
       totalPages: Math.ceil(totalAppointments / limit),
 
