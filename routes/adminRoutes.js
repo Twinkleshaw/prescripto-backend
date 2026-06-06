@@ -13,6 +13,8 @@ import {
 import { getPatientsSummary } from "../controllers/appointmentController.js";
 import {
   changeAdminPassword,
+  exportPaymentsCSV,
+  getPayments,
   updateAdminProfile,
 } from "../controllers/adminController.js";
 import { upload } from "../middleware/upload.js";
@@ -75,5 +77,14 @@ router.put(
 );
 
 router.get("/invoices", authenticate, authorizeRoles("admin"), getInvoices);
+
+router.get("/payments", authenticate, authorizeRoles("admin"), getPayments);
+
+router.get(
+  "/payments/export",
+  authenticate,
+  authorizeRoles("admin"),
+  exportPaymentsCSV,
+);
 
 export default router;
