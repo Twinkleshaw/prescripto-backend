@@ -3,6 +3,7 @@ import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
 import mongoose from "mongoose";
 import { Parser } from "json2csv";
+import PatientProfile from "../models/PatientProfile.js";
 
 export const getAppointments = async (req, res) => {
   try {
@@ -47,7 +48,7 @@ export const getAppointments = async (req, res) => {
 
     const totalDoctors = await Doctor.countDocuments();
 
-    const totalPatients = await Patient.countDocuments();
+    const totalPatients = await PatientProfile.countDocuments();
 
     const statusCounts = await Appointment.aggregate([
       {
