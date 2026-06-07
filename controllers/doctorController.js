@@ -2,7 +2,7 @@ import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import mongoose from "mongoose";
 import { Parser } from "json2csv";
-import { getFileUrl } from "../utils/fileHelper.js";
+import { getFilePath, getFileUrl } from "../utils/fileHelper.js";
 
 export const getDoctorDashboard = async (req, res) => {
   try {
@@ -401,9 +401,20 @@ export const updateDoctor = async (req, res) => {
     const updates = {};
     const body = req.body || {};
 
-    // image upload
     if (req.file) {
-      updates.image = getFileUrl(req, "uploads/profile", req.file.filename);
+      updates.image = getFilePath("uploads/profile", req.file.filename);
+    }
+
+    if (body.address) {
+      body.address = JSON.parse(body.address);
+    }
+
+    if (body.bankDetails) {
+      body.bankDetails = JSON.parse(body.bankDetails);
+    }
+
+    if (body.availableDays) {
+      body.availableDays = JSON.parse(body.availableDays);
     }
 
     // only update fields sent by user

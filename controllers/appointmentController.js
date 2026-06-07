@@ -265,7 +265,9 @@ export const getPatientsSummary = async (req, res) => {
           latestAppointmentCreatedAt: {
             $first: "$createdAt",
           },
-
+          latestAppointmentId: {
+            $first: "$_id",
+          },
           totalAppointments: {
             $sum: 1,
           },
@@ -335,6 +337,18 @@ export const getPatientsSummary = async (req, res) => {
               { $toString: "$patientAge" },
               "-",
               { $toString: "$bookedBy" },
+            ],
+          },
+          appointmentId: "$latestAppointmentId",
+
+          invoiceId: {
+            $concat: [
+              "#INV-",
+              {
+                $toUpper: {
+                  $substrCP: [{ $toString: "$latestAppointmentId" }, 18, 6],
+                },
+              },
             ],
           },
 

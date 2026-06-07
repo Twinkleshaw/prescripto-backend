@@ -42,6 +42,7 @@ router.put(
   "/update-doctor/:id",
   authenticate,
   authorizeRoles("admin"),
+  upload.single("image"),
   updateDoctor,
 );
 
