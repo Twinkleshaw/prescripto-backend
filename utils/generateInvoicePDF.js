@@ -23,6 +23,15 @@ export const generateInvoicePDF = async (appointment) => {
     year: "numeric",
   });
 
+  const formattedTime = new Date(`1970-01-01T${time}`).toLocaleTimeString(
+    "en-IN",
+    {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    },
+  );
+
   const patientId = `#P-${String(_id).slice(-5).toUpperCase()}`;
   const slNumber = `UID-${String(_id).slice(-6).toUpperCase()}`;
 
@@ -255,7 +264,7 @@ export const generateInvoicePDF = async (appointment) => {
       .font("Helvetica-Bold")
       .fontSize(11)
       .fillColor(darkText)
-      .text(time, PX + CW / 2 + 8, y + 24);
+      .text(formattedTime, PX + CW / 2 + 8, y + 24);
 
     doc
       .moveTo(PX + 10, y + 44)
