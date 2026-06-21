@@ -185,8 +185,7 @@ export const phonePeRedirect = async (req, res) => {
 
     res.send(`
       <html><body style="font-family:sans-serif;text-align:center;margin-top:50px;">
-        <h2>Processing your payment...</h2>
-        <p>You can close this window and return to the app.</p>
+        <h2>Payment completed. Returning to app...</h2>
       </body></html>
     `);
   } catch (error) {
@@ -195,31 +194,28 @@ export const phonePeRedirect = async (req, res) => {
   }
 };
 
-// paymentController.js — add this temporarily
-export const checkPaymentStatus = async (req, res) => {
-  const MERCHANT_ID = process.env.PHONEPE_MERCHANT_ID;
-  const SALT_KEY = process.env.PHONEPE_SALT_KEY;
-  const SALT_INDEX = process.env.PHONEPE_SALT_INDEX || "1";
-  const BASE_URL = process.env.PHONEPE_BASE_URL;
-
+export const getAppointmentPaymentStatus = async (req, res) => {
   try {
-    const { txnId } = req.params;
-    const statusPath = `/pg/v1/status/${MERCHANT_ID}/${txnId}`;
-    const statusVerify = checksum(statusPath, SALT_KEY, SALT_INDEX);
+    const { appointmentId } = req.params;
+    const appointment = await Appointment.findById(appointmentId);
 
-    const statusRes = await axios.get(`${BASE_URL}${statusPath}`, {
-      headers: {
-        "X-VERIFY": statusVerify,
-        "X-MERCHANT-ID": MERCHANT_ID,
-        "Content-Type": "application/json",
-      },
+    if (!appointment) {
+      return res.status(404).json({ success: false, message: "Not found" });
+    }
+    if (String(appointment.bookedBy) !== String(req.user.id)) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not your appointment" });
+    }
+
+    return res.json({
+      success: true,
+      paymentStatus: appointment.paymentStatus, // "pending" or "paid"
+      amount: appointment.amount,
+      paidAt: appointment.paidAt,
     });
-
-    return res.json(statusRes.data);
   } catch (error) {
-    console.error("STATUS CHECK ERROR:", error?.response?.data || error);
-    res
-      .status(500)
-      .json({ success: false, error: error?.response?.data || error.message });
+    console.error("STATUS ERROR:", error);
+    res.status(500).json({ success: false });
   }
 };

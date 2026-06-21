@@ -1,6 +1,6 @@
 import express from "express";
 import {
-  checkPaymentStatus,
+  getAppointmentPaymentStatus,
   initiatePayment,
   phonePeCallback,
   phonePeRedirect,
@@ -14,6 +14,6 @@ router.post("/initiate", authenticate, initiatePayment);
 router.post("/callback", phonePeCallback);
 router.get("/redirect", phonePeRedirect);
 // paymentRoutes.js — add temporarily
-router.get("/check-status/:txnId", checkPaymentStatus);
+router.get("/status/:appointmentId", authenticate, getAppointmentPaymentStatus);
 
 export default router;
