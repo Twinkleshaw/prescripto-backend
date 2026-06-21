@@ -58,6 +58,26 @@ const appointmentSchema = new mongoose.Schema(
     cancelledById: {
       type: mongoose.Schema.Types.ObjectId,
     },
+    transactionId: {
+      type: String,
+      default: null,
+    },
+
+    paymentProvider: {
+      type: String,
+      enum: ["phonepe"],
+      default: null,
+    },
+
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+
+    paymentResponse: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true },
 );
