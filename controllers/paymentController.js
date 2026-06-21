@@ -100,6 +100,12 @@ export const phonePeCallback = async (req, res) => {
     }
 
     const expected = checksum(base64Response, SALT_KEY, SALT_INDEX);
+    console.log("RECEIVED X-VERIFY:", xVerifyHeader);
+    console.log("COMPUTED EXPECTED:", expected);
+    console.log(
+      "SALT_KEY USED (masked):",
+      SALT_KEY ? SALT_KEY.slice(0, 4) + "..." + SALT_KEY.slice(-4) : "MISSING",
+    );
     if (expected !== xVerifyHeader) {
       console.warn("PhonePe callback signature mismatch");
       return res.status(400).json({ success: false });
