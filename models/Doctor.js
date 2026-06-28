@@ -30,7 +30,7 @@ const doctorSchema = new mongoose.Schema(
       required: false,
     },
 
-    specialtyBengali: String,
+    specialityBengali: String,
 
     degree: {
       type: String,

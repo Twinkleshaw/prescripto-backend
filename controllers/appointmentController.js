@@ -48,7 +48,17 @@ export const getAppointments = async (req, res) => {
 
     const totalDoctors = await Doctor.countDocuments();
 
-    const totalPatients = await PatientProfile.countDocuments();
+    let totalPatients;
+
+    if (req.user.role === "doctor") {
+      const distinctPatients = await Appointment.distinct(
+        "patientId",
+        baseFilter,
+      );
+      totalPatients = distinctPatients.length;
+    } else {
+      totalPatients = await PatientProfile.countDocuments();
+    }
 
     const statusCounts = await Appointment.aggregate([
       {
