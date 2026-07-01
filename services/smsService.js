@@ -2,7 +2,10 @@ import axios from "axios";
 
 export const sendOtpSms = async (phone, otp) => {
   //   const message = `Your OTP for login is ${otp}. Do not share this OTP with anyone. Regards, SAMMON.`;
-  const message = `Dear Client your code is ${otp},Thank you for visiting our website for testing ${otp} for SMS Service`;
+  const message =
+    `Welcome to Prescripto Dear User, your OTP for login is ${otp}. ` +
+    `It is valid for 5 minutes. Do not share this OTP with anyone. ` +
+    `Team Prescripto. SAMMON`;
 
   const response = await axios.get("https://softsms.in/app/smsapi/index.php", {
     params: {

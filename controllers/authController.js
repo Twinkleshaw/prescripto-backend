@@ -6,16 +6,14 @@ import Doctor from "../models/Doctor.js";
 import Admin from "../models/Admin.js";
 import twilio from "twilio";
 import Otp from "../models/Otp.js";
+import { sendOtpSms } from "../services/smsService.js";
 
 // Twilio client
 
 // ================= SEND OTP =================
+// ================= SEND OTP =================
 export const sendOTP = async (req, res) => {
   try {
-    const client = twilio(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN,
-    );
     let { phone } = req.body;
 
     if (!phone) {
@@ -25,10 +23,12 @@ export const sendOTP = async (req, res) => {
       });
     }
 
+    // Normalize phone number
     phone = phone.startsWith("+91") ? phone : `+91${phone}`;
 
     // 🚨 Rate limit (1 OTP per 60 sec)
     const existing = await Otp.findOne({ phone });
+
     if (existing && existing.createdAt > Date.now() - 60 * 1000) {
       return res.status(429).json({
         success: false,
@@ -36,25 +36,33 @@ export const sendOTP = async (req, res) => {
       });
     }
 
+    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
+    // ===========================
+    // SEND SMS FIRST
+    // ===========================
+    const smsResponse = await sendOtpSms(phone, otp);
+
+    console.log("SoftSMS Response:", smsResponse);
+
+    // Optional:
+    // Check provider response here if SoftSMS returns
+    // a success/failure status.
+
+    // ===========================
+    // HASH OTP
+    // ===========================
     const hashedOtp = await bcrypt.hash(otp, 10);
 
-    // Delete old OTPs
+    // Delete previous OTPs
     await Otp.deleteMany({ phone });
 
     // Save new OTP
     await Otp.create({
       phone,
       otp: hashedOtp,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-    });
-
-    // ✅ Send SMS
-    await client.messages.create({
-      body: `Your OTP is ${otp}`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
     });
 
     return res.json({
@@ -62,7 +70,8 @@ export const sendOTP = async (req, res) => {
       message: "OTP sent successfully",
     });
   } catch (error) {
-    console.error(error);
+    console.error("SEND OTP ERROR:", error);
+
     return res.status(500).json({
       success: false,
       message: "Failed to send OTP",
