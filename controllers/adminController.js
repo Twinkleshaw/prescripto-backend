@@ -1,8 +1,8 @@
 import Admin from "../models/Admin.js";
 import bcrypt from "bcryptjs";
-import { getFilePath } from "../utils/fileHelper.js";
 import Appointment from "../models/Appointment.js";
 import { Parser } from "json2csv";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 
 export const updateAdminProfile = async (req, res) => {
   try {
@@ -21,9 +21,12 @@ export const updateAdminProfile = async (req, res) => {
 
     // ✅ image upload — store relative path only, NOT full URL
     if (req.file) {
-      admin.profileImage = `uploads/profile/${req.file.filename}`;
+      const result = await uploadToCloudinary(
+        req.file.buffer,
+        "prescripto/admins",
+      );
+      admin.profileImage = result.secure_url;
     }
-
     await admin.save();
     console.log(admin.profileImage);
     return res.json({

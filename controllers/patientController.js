@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
-import { getFileUrl } from "../utils/fileHelper.js";
 import PatientProfile from "../models/PatientProfile.js";
 
 const generateTimeFromToken = (startTime, token, slotDuration) => {
@@ -219,11 +218,11 @@ export const updatePatientProfile = async (req, res) => {
     const updates = { ...req.body };
 
     if (req.file) {
-      updates.profileImage = getFileUrl(
-        req,
-        "uploads/profile",
-        req.file.filename,
+      const result = await uploadToCloudinary(
+        req.file.buffer,
+        "prescripto/patients",
       );
+      updates.profileImage = result.secure_url;
     }
 
     const patient = await Patient.findByIdAndUpdate(patientId, updates, {

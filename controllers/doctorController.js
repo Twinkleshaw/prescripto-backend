@@ -2,7 +2,7 @@ import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import mongoose from "mongoose";
 import { Parser } from "json2csv";
-import { getFilePath, getFileUrl } from "../utils/fileHelper.js";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 
 export const getDoctorDashboard = async (req, res) => {
   try {
@@ -402,7 +402,11 @@ export const updateDoctor = async (req, res) => {
     const body = req.body || {};
 
     if (req.file) {
-      updates.image = getFilePath("uploads/profile", req.file.filename);
+      const result = await uploadToCloudinary(
+        req.file.buffer,
+        "prescripto/doctors",
+      );
+      updates.image = result.secure_url;
     }
 
     if (body.address) {
@@ -442,7 +446,9 @@ export const updateDoctor = async (req, res) => {
       doctor: updatedDoctor,
     });
   } catch (error) {
-    console.error("Update Doctor Error:", error);
+    console.error(error);
+    console.error(error.response?.data);
+    console.error(error.message);
 
     return res.status(500).json({
       message: "Server error",
