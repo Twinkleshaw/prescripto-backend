@@ -3,6 +3,7 @@ import Appointment from "../models/Appointment.js";
 import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
 import PatientProfile from "../models/PatientProfile.js";
+import { uploadToCloudinary } from "../utils/cloudinary.js";
 
 const generateTimeFromToken = (startTime, token, slotDuration) => {
   const [hours, minutes] = startTime.split(":").map(Number);

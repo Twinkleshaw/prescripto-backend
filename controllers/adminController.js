@@ -121,8 +121,8 @@ export const getPayments = async (req, res) => {
       filter.paymentType = paymentType;
     }
 
-    if (search) {
-      filter.patientName = {
+    if (search?.trim()) {
+      filter.transactionId = {
         $regex: search.trim(),
         $options: "i",
       };

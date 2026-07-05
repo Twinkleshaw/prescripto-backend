@@ -268,84 +268,110 @@ export const getAllSearchDoctors = async (req, res) => {
 export const getAllDoctors = async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
-
     const limit = Math.min(50, parseInt(req.query.limit) || 10);
-
     const skip = (page - 1) * limit;
+    const search = req.query.search?.trim() || "";
 
-    const [doctors, total, revenueResult] = await Promise.all([
-      Doctor.aggregate([
-        {
-          $lookup: {
-            from: "appointments",
-            localField: "_id",
-            foreignField: "doctorId",
-            as: "appointments",
+    const matchStage = search
+      ? {
+          name: {
+            $regex: search,
+            $options: "i",
           },
-        },
+        }
+      : {};
 
-        {
-          $addFields: {
-            totalAppointments: {
-              $size: "$appointments",
-            },
-
-            totalRevenue: {
-              $sum: "$appointments.amount",
-            },
+    const [doctors, totalDoctors, filteredTotal, activeDoctors, revenueResult] =
+      await Promise.all([
+        Doctor.aggregate([
+          {
+            $match: matchStage,
           },
-        },
-
-        {
-          $project: {
-            appointments: 0,
-            password: 0,
-          },
-        },
-
-        {
-          $sort: { createdAt: -1 },
-        },
-
-        {
-          $skip: skip,
-        },
-
-        {
-          $limit: limit,
-        },
-      ]),
-
-      Doctor.countDocuments(),
-
-      Appointment.aggregate([
-        {
-          $group: {
-            _id: null,
-
-            totalRevenue: {
-              $sum: "$amount",
+          {
+            $lookup: {
+              from: "appointments",
+              localField: "_id",
+              foreignField: "doctorId",
+              as: "appointments",
             },
           },
-        },
-      ]),
-    ]);
+          {
+            $addFields: {
+              totalAppointments: {
+                $size: "$appointments",
+              },
+              totalRevenue: {
+                $sum: "$appointments.amount",
+              },
+            },
+          },
+          {
+            $project: {
+              appointments: 0,
+              password: 0,
+            },
+          },
+          {
+            $sort: {
+              createdAt: -1,
+            },
+          },
+          {
+            $skip: skip,
+          },
+          {
+            $limit: limit,
+          },
+        ]),
+
+        // Total doctors (always)
+        Doctor.countDocuments(),
+
+        // Total matching search (for pagination)
+        Doctor.countDocuments(matchStage),
+
+        // Total active doctors (always)
+        Doctor.countDocuments({
+          isActive: true,
+          availabilityStatus: true,
+        }),
+
+        // Overall revenue
+        Appointment.aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: {
+                $sum: "$amount",
+              },
+            },
+          },
+        ]),
+      ]);
 
     const totalRevenue = revenueResult[0]?.totalRevenue || 0;
 
-    res.json({
+    return res.json({
       success: true,
-      total,
+
+      doctors,
+
+      // Summary Cards
+      totalDoctors,
+      activeDoctors,
       totalRevenue,
+
+      // Pagination
+      filteredTotal,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
-      doctors,
+      totalPages: Math.ceil(filteredTotal / limit),
     });
   } catch (error) {
     console.error("getAllDoctors error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
+      success: false,
       message: "Server error",
     });
   }
