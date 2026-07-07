@@ -217,7 +217,7 @@ export const getAllSearchDoctors = async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(20, parseInt(req.query.limit) || 10);
 
-    const { speciality = "", city = "" } = req.query;
+    const { speciality = "", city = "", name = "" } = req.query;
 
     const andConditions = [];
 
@@ -237,7 +237,7 @@ export const getAllSearchDoctors = async (req, res) => {
 
     if (name.trim()) {
       andConditions.push({
-        "address.city": { $regex: name.trim(), $options: "i" },
+        name: { $regex: name.trim(), $options: "i" },
       });
     }
 
