@@ -85,7 +85,7 @@ const appointmentSchema = new mongoose.Schema(
 appointmentSchema.index(
   { createdAt: 1 },
   {
-    expireAfterSeconds: 21, // 15 minutes
+    expireAfterSeconds: 900, // 15 minutes
     partialFilterExpression: {
       paymentStatus: "pending",
       paymentType: "online",

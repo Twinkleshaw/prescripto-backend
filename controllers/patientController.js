@@ -4,6 +4,7 @@ import Doctor from "../models/Doctor.js";
 import Patient from "../models/Patient.js";
 import PatientProfile from "../models/PatientProfile.js";
 import { uploadToCloudinary } from "../utils/cloudinary.js";
+import Counter from "../models/Counter.js";
 
 const generateTimeFromToken = (startTime, token, slotDuration) => {
   const [hours, minutes] = startTime.split(":").map(Number);
@@ -110,8 +111,6 @@ export const bookAppointment = async (req, res) => {
       });
     }
 
-    console.log(req.user.id);
-
     // Fallback to name search
     if (!patientProfile) {
       patientProfile = await PatientProfile.findOne({
@@ -134,12 +133,13 @@ export const bookAppointment = async (req, res) => {
     // TOKEN GENERATION
     // =========================
 
-    const existing = await Appointment.find({
-      doctorId,
-      date,
-    });
+    const counter = await Counter.findOneAndUpdate(
+      { doctorId, date },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true },
+    );
 
-    const tokenNumber = existing.length + 1;
+    const tokenNumber = counter.seq;
 
     const time = generateTimeFromToken(
       doctor.startTime,
