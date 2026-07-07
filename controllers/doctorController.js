@@ -235,6 +235,12 @@ export const getAllSearchDoctors = async (req, res) => {
       });
     }
 
+    if (name.trim()) {
+      andConditions.push({
+        "address.city": { $regex: name.trim(), $options: "i" },
+      });
+    }
+
     // 👤 Public/patient access: only active + available doctors
     if (!req.user || req.user.role === "patient") {
       andConditions.push({ isActive: true, availabilityStatus: true });
