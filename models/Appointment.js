@@ -82,4 +82,15 @@ const appointmentSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+appointmentSchema.index(
+  { createdAt: 1 },
+  {
+    expireAfterSeconds: 20, // 15 minutes
+    partialFilterExpression: {
+      paymentStatus: "pending",
+      paymentType: "online",
+    },
+  },
+);
+
 export default mongoose.model("Appointment", appointmentSchema);
