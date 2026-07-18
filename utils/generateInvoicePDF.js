@@ -233,8 +233,15 @@ export const generateInvoicePDF = async (appointment) => {
       .strokeColor(borderGray)
       .lineWidth(0.3)
       .stroke();
-    const address =
-      `${doctor.address?.city || ""}, ${doctor.address?.state || ""} ${doctor.address?.pinCode || ""}`.trim();
+    const address = [
+      doctor.address?.street,
+      doctor.address?.landmark,
+      doctor.address?.city,
+      doctor.address?.state,
+      doctor.address?.pinCode,
+    ]
+      .filter(Boolean)
+      .join(", ");
     infoRow("Clinic Address", address, y + 62);
     y += 96;
 

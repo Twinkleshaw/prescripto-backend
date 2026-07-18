@@ -250,7 +250,7 @@ export const getAllSearchDoctors = async (req, res) => {
 
     const [doctors, total] = await Promise.all([
       Doctor.find(query)
-        .select("name image speciality experience address.city")
+        .select("name image speciality experience address")
         .skip((page - 1) * limit)
         .limit(limit)
         .sort({ createdAt: -1 })
