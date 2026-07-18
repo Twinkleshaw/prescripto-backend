@@ -11,7 +11,8 @@ import { sendOtpSms } from "../services/smsService.js";
 // Twilio client
 
 // ================= SEND OTP =================
-// ================= SEND OTP =================
+const REVIEW_PHONE = "+919999999999";
+const REVIEW_OTP = "123456";
 export const sendOTP = async (req, res) => {
   try {
     let { phone } = req.body;
@@ -26,6 +27,8 @@ export const sendOTP = async (req, res) => {
     // Normalize phone number
     phone = phone.startsWith("+91") ? phone : `+91${phone}`;
 
+    const isReviewPhone = phone === REVIEW_PHONE;
+
     // 🚨 Rate limit (1 OTP per 60 sec)
     const existing = await Otp.findOne({ phone });
 
@@ -37,32 +40,29 @@ export const sendOTP = async (req, res) => {
     }
 
     // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = isReviewPhone
+      ? REVIEW_OTP
+      : Math.floor(100000 + Math.random() * 900000).toString();
 
-    // ===========================
-    // SEND SMS FIRST
-    // ===========================
-    const smsResponse = await sendOtpSms(phone, otp);
+    // Send SMS only for normal users
+    if (!isReviewPhone) {
+      const smsResponse = await sendOtpSms(phone, otp);
+      console.log("SoftSMS Response:", smsResponse);
+    } else {
+      console.log("Google Play Review login - SMS skipped");
+    }
 
-    console.log("SoftSMS Response:", smsResponse);
-
-    // Optional:
-    // Check provider response here if SoftSMS returns
-    // a success/failure status.
-
-    // ===========================
-    // HASH OTP
-    // ===========================
+    // Hash OTP
     const hashedOtp = await bcrypt.hash(otp, 10);
 
     // Delete previous OTPs
     await Otp.deleteMany({ phone });
 
-    // Save new OTP
+    // Save OTP
     await Otp.create({
       phone,
       otp: hashedOtp,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000),
     });
 
     return res.json({
