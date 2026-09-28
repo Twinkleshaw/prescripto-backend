@@ -72,7 +72,7 @@ const doctorSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: false,
-      // unique: true,
+      unique: true,
     },
 
     googleMapLink: String,
