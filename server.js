@@ -38,7 +38,7 @@ mongoose
 
 app.use(
   cors({
-    origin: "*", // for now (later restrict)
+    origin: ["https://prescriptoadmin.com", "https://www.prescriptoadmin.com"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     credentials: true,
   }),
