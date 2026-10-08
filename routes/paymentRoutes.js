@@ -12,8 +12,8 @@ const router = express.Router();
 router.post("/initiate", authenticate, initiatePayment);
 
 router.post("/callback", phonePeCallback);
+router.post("/webhook", phonePeCallback);
 router.get("/redirect", phonePeRedirect);
-// paymentRoutes.js — add temporarily
 router.get("/status/:appointmentId", authenticate, getAppointmentPaymentStatus);
 
 export default router;

@@ -63,6 +63,26 @@ const appointmentSchema = new mongoose.Schema(
       default: null,
     },
 
+    phonePeOrderId: {
+      type: String,
+      default: null,
+    },
+
+    paymentState: {
+      type: String,
+      default: null,
+    },
+
+    paymentCheckoutUrl: {
+      type: String,
+      default: null,
+    },
+
+    paymentExpiresAt: {
+      type: Date,
+      default: null,
+    },
+
     paymentProvider: {
       type: String,
       enum: ["phonepe"],
@@ -85,7 +105,7 @@ const appointmentSchema = new mongoose.Schema(
 appointmentSchema.index(
   { createdAt: 1 },
   {
-    expireAfterSeconds: 900, // 15 minutes
+    expireAfterSeconds: 900,
     partialFilterExpression: {
       paymentStatus: "pending",
       paymentType: "online",
