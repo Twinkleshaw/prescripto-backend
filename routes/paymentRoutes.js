@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getAppointmentPaymentStatus,
+  initiateMobilePayment,
   initiatePayment,
   phonePeCallback,
   phonePeRedirect,
@@ -10,6 +11,7 @@ import { authenticate } from "../middleware/authMiddleware.js";
 const router = express.Router();
 
 router.post("/initiate", authenticate, initiatePayment);
+router.post("/initiate-mobile", authenticate, initiateMobilePayment);
 
 router.post("/callback", phonePeCallback);
 router.post("/webhook", phonePeCallback);

@@ -78,6 +78,15 @@ const appointmentSchema = new mongoose.Schema(
       default: null,
     },
 
+    // Short-lived PhonePe SDK token used only to safely reuse an Android
+    // checkout after a repeated tap. It is excluded from normal queries so it
+    // cannot leak through appointment API responses.
+    paymentSdkToken: {
+      type: String,
+      default: null,
+      select: false,
+    },
+
     paymentExpiresAt: {
       type: Date,
       default: null,

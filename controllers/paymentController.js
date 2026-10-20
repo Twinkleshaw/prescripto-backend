@@ -61,6 +61,13 @@ const mergePaymentResponse = (appointment, source, response) => {
   appointment.markModified("paymentResponse");
 };
 
+const withoutSdkToken = (response) => {
+  if (!response || typeof response !== "object") return response;
+
+  const { token: _token, ...safeResponse } = response;
+  return safeResponse;
+};
+
 const verifyProviderAmount = (appointment, response) => {
   if (response.amount == null) return;
 
@@ -91,7 +98,12 @@ const applyProviderStatus = async (appointment, response, source) => {
   if (state === "COMPLETED") {
     appointment.paymentStatus = "paid";
     appointment.paidAt ||= new Date();
+  }
+
+  if (["COMPLETED", "FAILED"].includes(state)) {
     appointment.paymentCheckoutUrl = null;
+    appointment.paymentSdkToken = null;
+    appointment.paymentExpiresAt = null;
   }
 
   mergePaymentResponse(appointment, source, response);
@@ -255,6 +267,155 @@ export const initiatePayment = async (req, res) => {
     }
 
     return sendGatewayError(res, error, "PHONEPE INITIATE ERROR");
+  }
+};
+
+export const initiateMobilePayment = async (req, res) => {
+  try {
+    const { appointmentId } = req.body;
+
+    if (!appointmentId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Appointment ID is required" });
+    }
+
+    const appointment =
+      await Appointment.findById(appointmentId).select("+paymentSdkToken");
+
+    if (!appointment) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Appointment not found" });
+    }
+
+    if (String(appointment.bookedBy) !== String(req.user.id)) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not your appointment" });
+    }
+
+    if (appointment.status !== "booked") {
+      return res.status(400).json({
+        success: false,
+        message: `Payment cannot be started for a ${appointment.status} appointment`,
+      });
+    }
+
+    if (appointment.paymentType === "pay_at_clinic") {
+      return res.status(400).json({
+        success: false,
+        message: "This appointment is configured for payment at the clinic",
+      });
+    }
+
+    if (appointment.paymentStatus === "paid") {
+      return res.status(400).json({ success: false, message: "Already paid" });
+    }
+
+    const amount = amountInPaise(appointment);
+
+    if (!Number.isSafeInteger(amount) || amount < 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Appointment amount must be at least INR 1.00",
+      });
+    }
+
+    // Safely reuse a still-live SDK token if the user taps Pay more than once.
+    if (
+      appointment.paymentSdkToken &&
+      appointment.phonePeOrderId &&
+      appointment.paymentExpiresAt &&
+      appointment.paymentExpiresAt > new Date()
+    ) {
+      return res.json({
+        success: true,
+        appointmentId: appointment._id,
+        merchantOrderId: appointment.transactionId,
+        orderId: appointment.phonePeOrderId,
+        token: appointment.paymentSdkToken,
+        expireAt: appointment.paymentExpiresAt.getTime(),
+        reused: true,
+      });
+    }
+
+    // Reconcile any previous order before allowing a new SDK order.
+    if (appointment.transactionId && appointment.paymentState) {
+      const currentStatus = await phonePeService.getOrderStatus(
+        appointment.transactionId,
+      );
+      const state = await applyProviderStatus(
+        appointment,
+        currentStatus,
+        "status",
+      );
+
+      if (state === "COMPLETED") {
+        return res
+          .status(400)
+          .json({ success: false, message: "Already paid" });
+      }
+
+      if (["CREATED", "PENDING"].includes(state)) {
+        return res.status(409).json({
+          success: false,
+          message: "A payment is already in progress. Check its status first.",
+        });
+      }
+    }
+
+    const merchantOrderId = `APPT-${appointment._id}-${crypto.randomBytes(6).toString("hex")}`;
+    const response = await phonePeService.createSdkOrder({
+      merchantOrderId,
+      amount,
+      metaInfo: {
+        udf1: String(appointment._id),
+      },
+    });
+
+    if (!response?.orderId || !response?.token) {
+      throw new PaymentVerificationError(
+        "PhonePe did not return an SDK order ID and token",
+      );
+    }
+
+    const expireAt =
+      response.expireAt ||
+      response.expiryAt ||
+      Date.now() + phonePeService.getOrderExpirySeconds() * 1000;
+
+    appointment.transactionId = merchantOrderId;
+    appointment.phonePeOrderId = response.orderId;
+    appointment.paymentProvider = "phonepe";
+    appointment.paymentType = "online";
+    appointment.paymentState = (response.state || "PENDING").toUpperCase();
+    appointment.paymentCheckoutUrl = null;
+    appointment.paymentSdkToken = response.token;
+    appointment.paymentExpiresAt = new Date(expireAt);
+    mergePaymentResponse(
+      appointment,
+      "initiateMobile",
+      withoutSdkToken(response),
+    );
+    await appointment.save();
+
+    return res.json({
+      success: true,
+      appointmentId: appointment._id,
+      merchantOrderId,
+      orderId: response.orderId,
+      token: response.token,
+      expireAt: appointment.paymentExpiresAt.getTime(),
+    });
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid appointment ID" });
+    }
+
+    return sendGatewayError(res, error, "PHONEPE MOBILE INITIATE ERROR");
   }
 };
 

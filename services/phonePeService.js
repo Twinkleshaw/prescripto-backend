@@ -217,6 +217,30 @@ export class PhonePeService {
     return response.data;
   }
 
+  async createSdkOrder({ merchantOrderId, amount, metaInfo }) {
+    const config = this.getApiConfig();
+    const data = {
+      merchantOrderId,
+      amount,
+      expireAfter: this.getOrderExpirySeconds(),
+      paymentFlow: {
+        type: "PG_CHECKOUT",
+      },
+    };
+
+    if (metaInfo && Object.keys(metaInfo).length > 0) {
+      data.metaInfo = metaInfo;
+    }
+
+    const response = await this.authenticatedRequest({
+      method: "POST",
+      url: `${config.apiBaseUrl}/checkout/v2/sdk/order`,
+      data,
+    });
+
+    return response.data;
+  }
+
   async getOrderStatus(merchantOrderId) {
     const config = this.getApiConfig();
     const response = await this.authenticatedRequest({
